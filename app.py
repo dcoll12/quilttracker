@@ -309,8 +309,8 @@ HTML = f"""<!DOCTYPE html>
 <div class="wrap">
   <p class="eyebrow">Salem, Indiana &middot; Washington County</p>
   <h1 class="title">The Community<br><em>Crossroads Quilt</em></h1>
-  <p class="tagline">750 patches. One for every $1,000 we need to save this corner forever. Every voice fills a square &mdash; even yours, Dean.</p>
-  <span class="fun-note">&#x1F9F5; No actual sewing required. Spencer's uncle would be proud.</span>
+  <p class="tagline">750 patches. One for every $1,000 we need to save this corner forever. Every voice fills a square.</p>
+  <span class="fun-note">&#x1F9F5; No actual sewing required.</span>
 
   <div class="progress-wrap">
     <div class="progress-header">
