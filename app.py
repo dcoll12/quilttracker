@@ -99,6 +99,7 @@ HTML = f"""<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+html,body{{width:100%;min-height:100%}}
 :root{{
   --forest: #1e3d1c;
   --sage:   #3d6e38;
@@ -433,15 +434,33 @@ body{{
   }}
 
   var COLS = 25;
+  var ROWS = 30;
 
   function sizeGrid(){{
     var grid = document.getElementById('grid');
-    if (!grid) return;
-    // cell width = grid inner width divided by column count, minus gap
-    var inner = grid.clientWidth;
-    var cell  = Math.floor((inner - (COLS - 1) * 2) / COLS);
-    grid.style.gridAutoRows = cell + 'px';
-    grid.style.gridTemplateRows = 'repeat(30,' + cell + 'px)';
+    if (!grid) {{ requestAnimationFrame(sizeGrid); return; }}
+
+    // getBoundingClientRect is most reliable inside iframes
+    var w = grid.getBoundingClientRect().width || grid.offsetWidth || grid.clientWidth;
+
+    if (w < 80) {{
+      // Layout hasn't settled yet — retry
+      setTimeout(sizeGrid, 50);
+      return;
+    }}
+
+    var cell = Math.floor((w - (COLS - 1) * 2) / COLS);
+    if (cell < 2) return;
+
+    // Set row height at grid level
+    grid.style.gridAutoRows      = cell + 'px';
+    grid.style.gridTemplateRows  = 'repeat(' + ROWS + ',' + cell + 'px)';
+
+    // Belt-and-suspenders: force height on every patch directly
+    var patches = grid.getElementsByClassName('patch');
+    for (var i = 0; i < patches.length; i++) {{
+      patches[i].style.height = cell + 'px';
+    }}
   }}
 
   function buildGrid(){{
@@ -559,16 +578,21 @@ body{{
   updateCountdown();
   buildGrid();
 
-  // Keep cells square on resize (e.g. Squarespace iframe resize)
+  // Fire sizeGrid at multiple delays — iframe paint timing is unpredictable
+  setTimeout(sizeGrid, 0);
+  setTimeout(sizeGrid, 150);
+  setTimeout(sizeGrid, 500);
+  setTimeout(sizeGrid, 1200);
+
   window.addEventListener('resize', sizeGrid);
 
-  // ResizeObserver for iframe-specific width changes
-  if (window.ResizeObserver){{
-    new ResizeObserver(sizeGrid).observe(document.getElementById('grid'));
+  if (window.ResizeObserver) {{
+    new ResizeObserver(function() {{ sizeGrid(); }})
+      .observe(document.documentElement);
   }}
 }})();
 </script>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=1250, scrolling=True)
+st.components.v1.html(HTML, height=1400, scrolling=True)
