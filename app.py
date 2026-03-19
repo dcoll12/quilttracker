@@ -22,6 +22,26 @@ GOAL = TOTAL * PATCH_VALUE
 DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
 
+PAL = [
+    '#3d5c3a','#5a7d56','#7a9e76','#4a8f52','#2d5c32',
+    '#c4923a','#e8b86d','#a0722a','#d4a84a','#8a5a1a',
+    '#8b3a2a','#b5503a','#c97a5a','#d4826a','#aa3a3a',
+    '#6b9db8','#4a7d96','#8fbdd4','#3a72aa','#2a5a8a',
+    '#7a6b4a','#a08c5a','#c4a87a','#aa7a2a','#8a5a2a',
+    '#3d5c4a','#5a8a6a','#2a6a6a','#3a8a8a','#6a2a7a',
+    '#8a4a9a','#a06aba','#9a6324','#469990','#808000',
+]
+
+
+def _lcg_colors():
+    """Deterministic color assignment matching the original JS LCG."""
+    seed = 99991
+    colors = []
+    for _ in range(TOTAL):
+        seed = (seed * 16807) % 2147483647
+        colors.append(PAL[int((seed / 2147483647) * len(PAL))])
+    return colors
+
 
 @st.cache_data(ttl=300)
 def load_patch_data():
@@ -64,8 +84,33 @@ def _days_remaining():
     return max(0, math.ceil(diff.total_seconds() / 86400))
 
 
+def _build_grid_html(amounts, colors):
+    """Generate the 750 patch divs server-side so they don't depend on JS."""
+    parts = []
+    for i in range(TOTAL):
+        amt = amounts[i]
+        pct = min(1.0, amt / PATCH_VALUE)
+        col = colors[i]
+        if pct >= 1:
+            cls = "sq filled"
+            style = f"background:{col}"
+        elif pct > 0:
+            fp = round(pct * 100)
+            cls = "sq partial"
+            style = f"background:linear-gradient(to top,{col} {fp}%,#f0ebe0 {fp}%)"
+        else:
+            cls = "sq empty"
+            style = ""
+        parts.append(
+            f'<div class="{cls}" data-i="{i}">'
+            f'<div class="sq-inner" style="{style}"></div></div>'
+        )
+    return "\n".join(parts)
+
+
 amounts = load_patch_data()
 amounts_json = json.dumps([round(a, 2) for a in amounts])
+colors = _lcg_colors()
 total_raised = round(sum(amounts))
 full_patches = sum(1 for a in amounts if a >= PATCH_VALUE)
 partial_patches = sum(1 for a in amounts if 0 < a < PATCH_VALUE)
@@ -74,6 +119,7 @@ days_remaining = _days_remaining()
 pct_goal = round(min(100.0, total_raised / GOAL * 100), 1)
 raised_fmt = f"${total_raised:,}"
 raised_sub = "Be the first patch!" if total_raised == 0 else f"{full_patches} patches claimed"
+grid_html = _build_grid_html(amounts, colors)
 
 st.markdown(
     """
@@ -109,11 +155,9 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .layout{display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap}
 .quilt-col{flex:1;min-width:280px}
 .sidebar{flex:0 0 210px;min-width:180px}
-/* THE FIX: padding-top:100% trick makes squares work without aspect-ratio */
-/* aspect-ratio collapses in Streamlit iframes when grid cols have no px width */
 .quilt-border{border:3px solid #1e3d1c;border-radius:4px;padding:3px;background:#1e3d1c;width:100%}
 .quilt-grid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px;width:100%}
-.sq{position:relative;width:100%;cursor:pointer;border-radius:1px;transition:filter .12s}
+.sq{position:relative;aspect-ratio:1;cursor:pointer;border-radius:1px;transition:filter .12s}
 .sq:hover{filter:brightness(1.3);z-index:2}
 .sq-inner{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1px}
 .sq.empty .sq-inner{background:#f0ebe0;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(60,60,50,.06) 3px,rgba(60,60,50,.06) 4px)}
@@ -135,20 +179,19 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .floatmsg{position:fixed;pointer-events:none;z-index:9999;font-size:1.1rem;font-weight:500;font-family:'DM Sans',sans-serif;animation:float-up .9s ease both}
 @keyframes float-up{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-70px) scale(1.5);opacity:0}}
 @media(max-width:640px){
-  /* grid-template-columns set by JS for both mobile and desktop */
+  .quilt-grid{grid-template-columns:repeat(15,1fr)}
   .layout{flex-direction:column}
   .sidebar{flex:none;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
   .sidebar .countdown,.sidebar .donate-btn,.sidebar .micro{grid-column:span 2}
 }
 """
 
-# ── JS — plain string, no f-string, no brace escaping ─────────────────────────
+# ── JS — interactivity only, grid HTML is server-rendered ─────────────────────
 JS = """
 (function() {
   var D      = window.__QD__;
   var A      = D.amounts;
   var PV     = D.patchValue;
-  var N      = D.total;
   var ZEFFY  = D.zeffyUrl;
   var PCT    = D.pctGoal;
 
@@ -165,67 +208,12 @@ JS = """
   var seed = 99991;
   function srand() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
   var COL = [];
-  for (var i = 0; i < N; i++) COL.push(PAL[Math.floor(srand() * PAL.length)]);
+  for (var i = 0; i < D.total; i++) COL.push(PAL[Math.floor(srand() * PAL.length)]);
 
   var HINTS  = ['claim me!', 'yours?', 'fill me!', 'be bold', "c'mon!"];
   var FLOATS = ['thank you!', 'stitched!', 'yes!!', 'patch claimed!', 'yours now!'];
 
   var grid = document.getElementById('quilt-grid');
-  var GAP = 2;
-
-  /* Calculate explicit pixel cell size from container width */
-  function getCols() { return window.innerWidth <= 640 ? 15 : 25; }
-
-  function sizeGrid() {
-    var cols = getCols();
-    var w = grid.parentNode.offsetWidth - 6; /* subtract quilt-border padding */
-    if (w <= 0) w = grid.offsetWidth;
-    if (w <= 0) return;
-    var cell = Math.floor((w - (cols - 1) * GAP) / cols);
-    grid.style.gridTemplateColumns = 'repeat(' + cols + ',' + cell + 'px)';
-    grid.style.gridAutoRows = cell + 'px';
-  }
-
-  function buildGrid() {
-    sizeGrid();
-    var frag = document.createDocumentFragment();
-
-    for (var i = 0; i < N; i++) {
-      var outer = document.createElement('div');
-      var inner = document.createElement('div');
-      inner.className = 'sq-inner';
-
-      var amt = A[i] || 0;
-      var pct = Math.min(1, amt / PV);
-      outer.setAttribute('data-i', i);
-
-      if (pct >= 1) {
-        outer.className = 'sq filled';
-        inner.style.background = COL[i];
-      } else if (pct > 0) {
-        outer.className = 'sq partial';
-        var fp = Math.round(pct * 100);
-        inner.style.background = 'linear-gradient(to top,' + COL[i] + ' ' + fp + '%,#f0ebe0 ' + fp + '%)';
-      } else {
-        outer.className = 'sq empty';
-      }
-
-      outer.appendChild(inner);
-      frag.appendChild(outer);
-    }
-    grid.appendChild(frag);
-  }
-
-  /* Try immediately; if container has no width yet, retry after layout */
-  function init() {
-    var w = grid.parentNode ? grid.parentNode.offsetWidth : 0;
-    if (w > 0) {
-      buildGrid();
-    } else {
-      requestAnimationFrame(function() { setTimeout(buildGrid, 50); });
-    }
-  }
-  init();
 
   /* Animate progress bar in */
   var fill = document.getElementById('progress-fill');
@@ -237,13 +225,12 @@ JS = """
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
   }
   setTimeout(notifyHeight, 300);
-  window.addEventListener('resize', function() { sizeGrid(); notifyHeight(); });
+  window.addEventListener('resize', notifyHeight);
 
   var tip = document.getElementById('tip');
 
   grid.addEventListener('mousemove', function(e) {
     var sq = e.target;
-    /* walk up if inner was hit */
     if (sq && !sq.hasAttribute('data-i') && sq.parentNode && sq.parentNode.hasAttribute('data-i')) {
       sq = sq.parentNode;
     }
@@ -252,9 +239,9 @@ JS = """
     var amt = A[idx] || 0;
     var pct = Math.min(1, amt / PV);
     var msg;
-    if (pct <= 0)      msg = 'Patch #' + (idx+1) + ' \u2013 ' + HINTS[idx % HINTS.length];
-    else if (pct >= 1) msg = 'Patch #' + (idx+1) + ' \u2013 fully filled! $' + amt.toLocaleString();
-    else               msg = 'Patch #' + (idx+1) + ' \u2013 $' + amt.toLocaleString() + ' of $1,000 (' + Math.round(pct*100) + '%)';
+    if (pct <= 0)      msg = 'Patch #' + (idx+1) + ' \\u2013 ' + HINTS[idx % HINTS.length];
+    else if (pct >= 1) msg = 'Patch #' + (idx+1) + ' \\u2013 fully filled! $' + amt.toLocaleString();
+    else               msg = 'Patch #' + (idx+1) + ' \\u2013 $' + amt.toLocaleString() + ' of $1,000 (' + Math.round(pct*100) + '%)';
     tip.textContent = msg;
     tip.style.opacity = 1;
     tip.style.left = (e.clientX + 14) + 'px';
@@ -312,7 +299,8 @@ HTML = f"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>{CSS}</style>
 </head>
 <body>
@@ -351,7 +339,9 @@ HTML = f"""<!DOCTYPE html>
   <div class="layout">
     <div class="quilt-col">
       <div class="quilt-border">
-        <div class="quilt-grid" id="quilt-grid"></div>
+        <div class="quilt-grid" id="quilt-grid">
+{grid_html}
+        </div>
       </div>
       <div class="legend">
         <div class="legend-item">
