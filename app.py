@@ -198,6 +198,19 @@ JS = """
   }
   grid.appendChild(frag);
 
+  /* Force square cells: calculate column width and set explicit row height */
+  function fixSquares() {
+    var first = grid.querySelector('.sq');
+    if (!first) return;
+    var w = first.offsetWidth;
+    if (w <= 0) return;
+    grid.style.gridAutoRows = w + 'px';
+    var s = document.getElementById('sq-fix');
+    if (!s) { s = document.createElement('style'); s.id = 'sq-fix'; document.head.appendChild(s); }
+    s.textContent = '.sq{padding-top:0!important}';
+  }
+  fixSquares();
+
   /* Animate progress bar in */
   var fill = document.getElementById('progress-fill');
   if (fill) setTimeout(function() { fill.style.width = PCT + '%'; }, 150);
@@ -208,7 +221,7 @@ JS = """
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
   }
   setTimeout(notifyHeight, 300);
-  window.addEventListener('resize', notifyHeight);
+  window.addEventListener('resize', function() { fixSquares(); notifyHeight(); });
 
   var tip = document.getElementById('tip');
 
