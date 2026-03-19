@@ -11,7 +11,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Config ─────────────────────────────────────────────────────────────────────
 SHEET_URL = (
     "https://docs.google.com/spreadsheets/d/e/"
     "2PACX-1vQGdBOCAs2ubRWec2f7JxiqfLL9A1yylLjB90k8cPR55z5S14hpjnkcED-5hCdMBLY1viCz52qOZsVG"
@@ -24,9 +23,8 @@ DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
 
 
-# ── Data ───────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def load_patch_data() -> list:
+def load_patch_data():
     try:
         r = requests.get(SHEET_URL, timeout=10)
         r.raise_for_status()
@@ -35,7 +33,7 @@ def load_patch_data() -> list:
         return [0.0] * TOTAL
 
 
-def _parse_csv(csv_text: str) -> list:
+def _parse_csv(csv_text):
     rows = csv_text.strip().split("\n")
     patches = [0.0] * TOTAL
     cursor = 0
@@ -43,7 +41,6 @@ def _parse_csv(csv_text: str) -> list:
         if cursor >= TOTAL:
             break
         raw = row.split(",")[0].strip().strip("\"'")
-        # strip everything non-numeric except decimal point
         cell = "".join(c for c in raw if c.isdigit() or c == ".")
         try:
             val = float(cell)
@@ -51,7 +48,6 @@ def _parse_csv(csv_text: str) -> list:
             continue
         if val <= 0:
             continue
-        # FIX: overflow donations across multiple patches
         remaining = val
         while remaining > 0 and cursor < TOTAL:
             space = PATCH_VALUE - patches[cursor]
@@ -63,14 +59,12 @@ def _parse_csv(csv_text: str) -> list:
     return patches
 
 
-def _days_remaining() -> int:
+def _days_remaining():
     diff = DEADLINE - datetime.now()
     return max(0, math.ceil(diff.total_seconds() / 86400))
 
 
-# ── Stats ───────────────────────────────────────────────────────────────────────
 amounts = load_patch_data()
-# FIX: serialize with json.dumps so it's always valid JS array
 amounts_json = json.dumps([round(a, 2) for a in amounts])
 total_raised = round(sum(amounts))
 full_patches = sum(1 for a in amounts if a >= PATCH_VALUE)
@@ -81,7 +75,6 @@ pct_goal = round(min(100.0, total_raised / GOAL * 100), 1)
 raised_fmt = f"${total_raised:,}"
 raised_sub = "Be the first patch!" if total_raised == 0 else f"{full_patches} patches claimed"
 
-# ── Hide Streamlit chrome ───────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
@@ -94,9 +87,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Build HTML — FIX: keep JS in a separate string, no f-string brace conflicts ──
-# Inject only the data values Python knows about; all JS logic stays unescaped.
-
+# ── CSS ────────────────────────────────────────────────────────────────────────
 CSS = """
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#1e3d1c}
@@ -111,19 +102,22 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .progress-raised{font-family:'Playfair Display',serif;font-size:1.35rem;color:#3d6e38}
 .progress-goal{font-size:.78rem;color:#4a5c47}
 .progress-track{height:10px;background:rgba(30,61,28,.1);border-radius:99px;overflow:hidden}
-.progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#3d6e38 0%,#5a8f52 60%,#c4923a 100%);transition:width .8s ease}
+.progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#3d6e38 0%,#5a8f52 60%,#c4923a 100%);transition:width .8s ease;width:0%}
 .progress-sub{display:flex;gap:1.5rem;margin-top:.6rem;flex-wrap:wrap}
 .prog-chip{font-size:.7rem;color:#4a5c47;display:flex;align-items:center;gap:.35rem}
 .prog-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 .layout{display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap}
 .quilt-col{flex:1;min-width:280px}
 .sidebar{flex:0 0 210px;min-width:180px}
-.quilt-border{border:3px solid #1e3d1c;border-radius:4px;padding:3px;background:#1e3d1c}
-.quilt-grid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px}
-.sq{aspect-ratio:1;border-radius:1px;cursor:pointer;position:relative;transition:filter .12s,outline .12s}
-.sq:hover{filter:brightness(1.25);outline:2px solid rgba(255,255,255,.75);outline-offset:-2px;z-index:2}
-.sq.empty{background:#f0ebe0;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(60,60,50,.06) 3px,rgba(60,60,50,.06) 4px)}
-.sq.filled::after{content:'';position:absolute;inset:18%;border:1px solid rgba(255,255,255,.22)}
+/* THE FIX: padding-top:100% trick makes squares work without aspect-ratio */
+/* aspect-ratio collapses in Streamlit iframes when grid cols have no px width */
+.quilt-border{border:3px solid #1e3d1c;border-radius:4px;padding:3px;background:#1e3d1c;width:100%}
+.quilt-grid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px;width:100%}
+.sq{position:relative;width:100%;padding-top:100%;cursor:pointer;border-radius:1px;transition:filter .12s}
+.sq:hover{filter:brightness(1.3);z-index:2}
+.sq-inner{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1px}
+.sq.empty .sq-inner{background:#f0ebe0;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(60,60,50,.06) 3px,rgba(60,60,50,.06) 4px)}
+.sq.filled .sq-inner::after{content:'';position:absolute;inset:18%;border:1px solid rgba(255,255,255,.22)}
 .legend{display:flex;gap:.9rem;margin-top:.75rem;flex-wrap:wrap;align-items:center}
 .legend-item{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:#4a5c47}
 .swatch{width:10px;height:10px;border-radius:1px;border:1px solid rgba(0,0,0,.12);flex-shrink:0}
@@ -148,17 +142,16 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 }
 """
 
-# FIX: JS is a plain string — no f-string, no brace escaping issues.
-# Python values are injected via a small inline <script> block before this.
+# ── JS — plain string, no f-string, no brace escaping ─────────────────────────
 JS = """
 (function() {
-  var A      = window.__QUILT_DATA__.amounts;
-  var PV     = window.__QUILT_DATA__.patchValue;
-  var N      = window.__QUILT_DATA__.total;
-  var ZEFFY  = window.__QUILT_DATA__.zeffyUrl;
-  var PCT    = window.__QUILT_DATA__.pctGoal;
+  var D      = window.__QD__;
+  var A      = D.amounts;
+  var PV     = D.patchValue;
+  var N      = D.total;
+  var ZEFFY  = D.zeffyUrl;
+  var PCT    = D.pctGoal;
 
-  // Color palette — seeded RNG so patch colors are stable across reloads
   var PAL = [
     '#3d5c3a','#5a7d56','#7a9e76','#4a8f52','#2d5c32',
     '#c4923a','#e8b86d','#a0722a','#d4a84a','#8a5a1a',
@@ -170,47 +163,62 @@ JS = """
   ];
 
   var seed = 99991;
-  function srand() { seed = (seed * 16807 + 0) % 2147483647; return seed / 2147483647; }
+  function srand() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
   var COL = [];
   for (var i = 0; i < N; i++) COL.push(PAL[Math.floor(srand() * PAL.length)]);
 
   var HINTS  = ['claim me!', 'yours?', 'fill me!', 'be bold', "c'mon!"];
   var FLOATS = ['thank you!', 'stitched!', 'yes!!', 'patch claimed!', 'yours now!'];
 
-  // Build grid
   var grid = document.getElementById('quilt-grid');
   var frag = document.createDocumentFragment();
 
   for (var i = 0; i < N; i++) {
-    var d   = document.createElement('div');
+    var outer = document.createElement('div');
+    var inner = document.createElement('div');
+    inner.className = 'sq-inner';
+
     var amt = A[i] || 0;
     var pct = Math.min(1, amt / PV);
-    d.setAttribute('data-i', i);
+    outer.setAttribute('data-i', i);
 
     if (pct >= 1) {
-      d.className = 'sq filled';
-      d.style.background = COL[i];
+      outer.className = 'sq filled';
+      inner.style.background = COL[i];
     } else if (pct > 0) {
-      d.className = 'sq partial';
+      outer.className = 'sq partial';
       var fp = Math.round(pct * 100);
-      d.style.background = 'linear-gradient(to top,' + COL[i] + ' ' + fp + '%,#f0ebe0 ' + fp + '%)';
+      inner.style.background = 'linear-gradient(to top,' + COL[i] + ' ' + fp + '%,#f0ebe0 ' + fp + '%)';
     } else {
-      d.className = 'sq empty';
+      outer.className = 'sq empty';
     }
-    frag.appendChild(d);
+
+    outer.appendChild(inner);
+    frag.appendChild(outer);
   }
   grid.appendChild(frag);
 
-  // Set progress bar width (CSS transition animates it in)
+  /* Animate progress bar in */
   var fill = document.getElementById('progress-fill');
-  if (fill) setTimeout(function() { fill.style.width = PCT + '%'; }, 100);
+  if (fill) setTimeout(function() { fill.style.width = PCT + '%'; }, 150);
 
-  // Tooltip
+  /* Auto-resize iframe height so Streamlit doesn't clip the grid */
+  function notifyHeight() {
+    var h = document.body.scrollHeight;
+    window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
+  }
+  setTimeout(notifyHeight, 300);
+  window.addEventListener('resize', notifyHeight);
+
   var tip = document.getElementById('tip');
 
   grid.addEventListener('mousemove', function(e) {
-    var sq = e.target.closest ? e.target.closest('.sq') : e.target;
-    if (!sq || !sq.classList.contains('sq')) { tip.style.opacity = 0; return; }
+    var sq = e.target;
+    /* walk up if inner was hit */
+    if (sq && !sq.hasAttribute('data-i') && sq.parentNode && sq.parentNode.hasAttribute('data-i')) {
+      sq = sq.parentNode;
+    }
+    if (!sq || !sq.hasAttribute('data-i')) { tip.style.opacity = 0; return; }
     var idx = parseInt(sq.getAttribute('data-i'));
     var amt = A[idx] || 0;
     var pct = Math.min(1, amt / PV);
@@ -227,18 +235,21 @@ JS = """
   grid.addEventListener('mouseleave', function() { tip.style.opacity = 0; });
 
   grid.addEventListener('click', function(e) {
-    var sq = e.target.closest ? e.target.closest('.sq') : e.target;
-    if (!sq || !sq.classList.contains('sq')) return;
+    var sq = e.target;
+    if (sq && !sq.hasAttribute('data-i') && sq.parentNode && sq.parentNode.hasAttribute('data-i')) {
+      sq = sq.parentNode;
+    }
+    if (!sq || !sq.hasAttribute('data-i')) return;
     var idx = parseInt(sq.getAttribute('data-i'));
     var pct = Math.min(1, (A[idx] || 0) / PV);
-    if (pct >= 1) return; // fully filled already
+    if (pct >= 1) return;
 
-    // Optimistic UI: mark as filled immediately
+    /* optimistic fill */
     A[idx] = PV;
     sq.className = 'sq filled';
-    sq.style.background = COL[idx];
+    var inner = sq.querySelector('.sq-inner');
+    if (inner) { inner.style.background = COL[idx]; inner.className = 'sq-inner'; }
 
-    // Float emoji
     var msg = document.createElement('div');
     msg.className = 'floatmsg';
     msg.textContent = FLOATS[Math.floor(Math.random() * FLOATS.length)];
@@ -248,27 +259,23 @@ JS = """
     document.body.appendChild(msg);
     setTimeout(function() { if (msg.parentNode) msg.parentNode.removeChild(msg); }, 950);
 
-    // Open Zeffy with patch number
     setTimeout(function() {
       window.open(ZEFFY + '?patch=' + (idx + 1), '_blank');
     }, 350);
   });
-
 })();
 """
 
-# ── Assemble HTML ──────────────────────────────────────────────────────────────
-# FIX: inject Python values as a JSON object into window.__QUILT_DATA__
-# so the main JS block has zero f-string interpolation — no brace escaping bugs.
-data_script = f"""<script>
-window.__QUILT_DATA__ = {{
-  "amounts":    {amounts_json},
-  "patchValue": {PATCH_VALUE},
-  "total":      {TOTAL},
-  "zeffyUrl":   "{ZEFFY_URL}",
-  "pctGoal":    {pct_goal}
-}};
-</script>"""
+# ── Inject Python data as a tiny inline script ────────────────────────────────
+data_script = (
+    "<script>window.__QD__ = {"
+    + f'"amounts":{amounts_json},'
+    + f'"patchValue":{PATCH_VALUE},'
+    + f'"total":{TOTAL},'
+    + f'"zeffyUrl":"{ZEFFY_URL}",'
+    + f'"pctGoal":{pct_goal}'
+    + "};</script>"
+)
 
 HTML = f"""<!DOCTYPE html>
 <html lang="en">
@@ -294,7 +301,7 @@ HTML = f"""<!DOCTYPE html>
       <span class="progress-goal">of $750,000 goal</span>
     </div>
     <div class="progress-track">
-      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      <div class="progress-fill" id="progress-fill"></div>
     </div>
     <div class="progress-sub">
       <span class="prog-chip">
@@ -357,7 +364,4 @@ HTML = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-# FIX: height auto-calculated based on grid rows + header; scrolling=False
-# 750/25 = 30 rows. Each patch ≈ (container_width/25). Container ~870px → 35px/patch.
-# 30 rows * 35 + gaps ≈ 1080px grid + ~500px header/sidebar = 1600 safe.
 st.components.v1.html(HTML, height=1600, scrolling=False)
