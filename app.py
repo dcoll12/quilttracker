@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import json
 import math
-import random
 from datetime import datetime
 
 st.set_page_config(
@@ -23,19 +22,6 @@ TOTAL = 750
 GOAL = TOTAL * PATCH_VALUE
 DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
-
-PALETTE = [
-    '#e6194b','#3cb44b','#ffe119','#4363d8','#f58231',
-    '#911eb4','#42d4f4','#f032e6','#bfef45','#fabed4',
-    '#469990','#dcbeff','#9a6324','#800000','#aaffc3',
-    '#808000','#ffd8b1','#000075','#e6beff',
-    '#2d5c32','#3d7a45','#4a8f52','#62a666',
-    '#1e3a5f','#2a5a8a','#3a72aa','#5a8aba',
-    '#8a2a2a','#aa3a3a','#c45a4a','#d4826a',
-    '#8a5a1a','#aa7a2a','#c4923a','#d4a84a',
-    '#6a2a7a','#8a4a9a','#a06aba',
-    '#2a6a6a','#3a8a8a','#5aaa9a',
-]
 
 
 # ── Data ───────────────────────────────────────────────────────────────────────
@@ -80,13 +66,6 @@ def _days_remaining() -> int:
     return max(0, math.ceil(diff.total_seconds() / 86400))
 
 
-# ── Assign stable random colors ───────────────────────────────────────────────
-@st.cache_data
-def get_patch_colors() -> list[str]:
-    rng = random.Random(42)
-    return [rng.choice(PALETTE) for _ in range(TOTAL)]
-
-
 # ── Stats ───────────────────────────────────────────────────────────────────────
 amounts = load_patch_data()
 amounts_json = json.dumps([round(a, 2) for a in amounts])
@@ -96,8 +75,6 @@ partial_patches = sum(1 for a in amounts if 0 < a < PATCH_VALUE)
 days_remaining = _days_remaining()
 pct_goal = round(min(100.0, total_raised / GOAL * 100), 1)
 raised_sub = "Be the first patch!" if total_raised == 0 else f"{full_patches} patches claimed"
-patch_colors = get_patch_colors()
-colors_json = json.dumps(patch_colors)
 
 # ── Hide Streamlit chrome ───────────────────────────────────────────────────────
 st.markdown(
@@ -112,20 +89,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-# ── Build the square divs ─────────────────────────────────────────────────────
-squares_html = ""
-for i in range(TOTAL):
-    amt = amounts[i]
-    pct = min(1.0, amt / PATCH_VALUE)
-    col = patch_colors[i]
-    if pct >= 1:
-        squares_html += f'<div class="sq filled" data-i="{i}" style="background:{col}"><div class="sq-inner"></div></div>'
-    elif pct > 0:
-        fill_pct = round(pct * 100)
-        squares_html += f'<div class="sq partial" data-i="{i}" style="background:linear-gradient(to top,{col} {fill_pct}%,#f0ebe0 {fill_pct}%)"></div>'
-    else:
-        squares_html += f'<div class="sq empty" data-i="{i}" data-color="{col}"></div>'
 
 # ── HTML component ──────────────────────────────────────────────────────────────
 HTML = f"""<!DOCTYPE html>
@@ -157,13 +120,12 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
 .quilt-col{{flex:1;min-width:280px}}
 .sidebar{{flex:0 0 210px;min-width:180px}}
 
-/* ── Quilt grid ── */
 .quilt-border{{border:3px solid #1e3d1c;border-radius:4px;padding:3px;background:#1e3d1c}}
-.quilt-grid{{display:grid;grid-template-columns:repeat(25, 1fr);gap:2px}}
-.sq{{aspect-ratio:1;border-radius:1px;cursor:pointer;position:relative;transition:filter .15s, outline .15s}}
+.quilt-grid{{display:grid;grid-template-columns:repeat(25,1fr);gap:2px}}
+.sq{{aspect-ratio:1;border-radius:1px;cursor:pointer;position:relative;transition:filter .15s}}
 .sq:hover{{filter:brightness(1.3);outline:2px solid rgba(255,255,255,0.7);outline-offset:-2px;z-index:1}}
 .sq.empty{{background:#f0ebe0;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(60,60,50,0.06) 3px,rgba(60,60,50,0.06) 4px)}}
-.sq.filled .sq-inner{{position:absolute;inset:18%;border:1px solid rgba(255,255,255,0.22);border-radius:0}}
+.sq.filled::after{{content:'';position:absolute;inset:18%;border:1px solid rgba(255,255,255,0.22)}}
 
 .legend{{display:flex;gap:.9rem;margin-top:.75rem;flex-wrap:wrap;align-items:center}}
 .legend-item{{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:#4a5c47}}
@@ -182,7 +144,7 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
 .floatmsg{{position:fixed;pointer-events:none;z-index:9999;font-size:1.1rem;font-weight:500;font-family:'DM Sans',sans-serif;animation:float-up .9s ease both}}
 @keyframes float-up{{0%{{transform:translateY(0) scale(1);opacity:1}}100%{{transform:translateY(-70px) scale(1.5);opacity:0}}}}
 @media(max-width:640px){{
-  .quilt-grid{{grid-template-columns:repeat(15, 1fr)}}
+  .quilt-grid{{grid-template-columns:repeat(15,1fr)}}
   .layout{{flex-direction:column}}
   .sidebar{{flex:none;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}}
   .sidebar .countdown,.sidebar .donate-btn,.sidebar .micro{{grid-column:span 2}}
@@ -213,9 +175,7 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
   <div class="layout">
     <div class="quilt-col">
       <div class="quilt-border">
-        <div class="quilt-grid" id="quilt-grid">
-          {squares_html}
-        </div>
+        <div class="quilt-grid" id="quilt-grid"></div>
       </div>
       <div class="legend">
         <div class="legend-item"><div class="swatch" style="background:#3d6e38"></div>Fully filled</div>
@@ -233,8 +193,8 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
       </div>
       <div class="stat-card">
         <div class="stat-label">Total Raised</div>
-        <div class="stat-val" id="total-raised">${total_raised:,}</div>
-        <div class="stat-sub" id="raised-sub">{raised_sub}</div>
+        <div class="stat-val">${total_raised:,}</div>
+        <div class="stat-sub">{raised_sub}</div>
       </div>
       <div class="countdown">
         <div class="cd-num">{days_remaining}</div>
@@ -250,42 +210,78 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
 
 <script>
 (function(){{
-  var AMOUNTS  = {amounts_json};
-  var COLORS   = {colors_json};
-  var PATCH_VAL = 1000;
-  var TOTAL    = 750;
-  var ZEFFY    = "{ZEFFY_URL}";
-  var HINTS    = ['claim me!','yours?','fill me!','don\\'t be shy','c\\'mon!'];
-  var FLOATS   = ['thank you!','stitched!','yes!!','patch claimed!','yours now!'];
-  var tip      = document.getElementById('tip');
+  var A = {amounts_json};
+  var PV = 1000;
+  var N = 750;
+  var ZEFFY = "{ZEFFY_URL}";
+  var PAL = [
+    '#e6194b','#3cb44b','#ffe119','#4363d8','#f58231',
+    '#911eb4','#42d4f4','#f032e6','#bfef45','#fabed4',
+    '#469990','#dcbeff','#9a6324','#800000','#aaffc3',
+    '#808000','#ffd8b1','#000075','#e6beff',
+    '#2d5c32','#3d7a45','#4a8f52','#62a666',
+    '#1e3a5f','#2a5a8a','#3a72aa','#5a8aba',
+    '#8a2a2a','#aa3a3a','#c45a4a','#d4826a',
+    '#8a5a1a','#aa7a2a','#c4923a','#d4a84a',
+    '#6a2a7a','#8a4a9a','#a06aba',
+    '#2a6a6a','#3a8a8a','#5aaa9a'
+  ];
+  var HINTS = ['claim me!','yours?','fill me!','be bold','c\\'mon!'];
+  var FLOATS = ['thank you!','stitched!','yes!!','patch claimed!','yours now!'];
 
+  /* seeded RNG for stable colors */
+  var seed = 12345;
+  function srand(){{ seed = (seed * 16807) % 2147483647; return seed / 2147483647; }}
+  var COL = [];
+  for (var i = 0; i < N; i++) COL.push(PAL[Math.floor(srand() * PAL.length)]);
+
+  /* build grid */
   var grid = document.getElementById('quilt-grid');
-  var squares = grid.querySelectorAll('.sq');
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < N; i++){{
+    var d = document.createElement('div');
+    d.setAttribute('data-i', i);
+    var amt = A[i] || 0;
+    var pct = Math.min(1, amt / PV);
+    if (pct >= 1){{
+      d.className = 'sq filled';
+      d.style.background = COL[i];
+    }} else if (pct > 0){{
+      d.className = 'sq partial';
+      var fp = Math.round(pct * 100);
+      d.style.background = 'linear-gradient(to top,' + COL[i] + ' ' + fp + '%,#f0ebe0 ' + fp + '%)';
+    }} else {{
+      d.className = 'sq empty';
+    }}
+    frag.appendChild(d);
+  }}
+  grid.appendChild(frag);
+
+  var tip = document.getElementById('tip');
 
   function updateCounts(){{
     var full = 0, partial = 0;
-    for (var i = 0; i < TOTAL; i++){{
-      var a = AMOUNTS[i] || 0;
-      if (a >= PATCH_VAL) full++;
+    for (var i = 0; i < N; i++){{
+      var a = A[i] || 0;
+      if (a >= PV) full++;
       else if (a > 0) partial++;
     }}
     var el;
     el = document.getElementById('full-count'); if (el) el.textContent = full;
     el = document.getElementById('partial-count'); if (el) el.textContent = partial;
-    el = document.getElementById('unclaimed-count'); if (el) el.textContent = (TOTAL - full - partial);
+    el = document.getElementById('unclaimed-count'); if (el) el.textContent = (N - full - partial);
   }}
 
-  /* hover tooltips */
   grid.addEventListener('mousemove', function(e){{
     var sq = e.target.closest('.sq');
     if (!sq){{ tip.style.opacity = 0; return; }}
     var idx = parseInt(sq.getAttribute('data-i'));
-    var amt = AMOUNTS[idx] || 0;
-    var pct = Math.min(1, amt / PATCH_VAL);
+    var amt = A[idx] || 0;
+    var pct = Math.min(1, amt / PV);
     var msg;
-    if (pct <= 0) msg = 'Patch #' + (idx+1) + ' - ' + HINTS[idx % HINTS.length];
-    else if (pct >= 1) msg = 'Patch #' + (idx+1) + ' - fully filled! $' + amt.toLocaleString();
-    else msg = 'Patch #' + (idx+1) + ' - $' + amt.toLocaleString() + ' of $1,000 (' + Math.round(pct*100) + '%)';
+    if (pct <= 0) msg = 'Patch #' + (idx+1) + ' \\u2013 ' + HINTS[idx % HINTS.length];
+    else if (pct >= 1) msg = 'Patch #' + (idx+1) + ' \\u2013 fully filled! $' + amt.toLocaleString();
+    else msg = 'Patch #' + (idx+1) + ' \\u2013 $' + amt.toLocaleString() + ' of $1,000 (' + Math.round(pct*100) + '%)';
     tip.textContent = msg;
     tip.style.opacity = 1;
     tip.style.left = (e.clientX + 14) + 'px';
@@ -296,35 +292,27 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
     tip.style.opacity = 0;
   }});
 
-  /* click to fill */
   grid.addEventListener('click', function(e){{
     var sq = e.target.closest('.sq');
     if (!sq) return;
     var idx = parseInt(sq.getAttribute('data-i'));
-    var col = COLORS[idx];
 
-    /* fill the clicked square */
-    if ((AMOUNTS[idx] || 0) < PATCH_VAL){{
-      AMOUNTS[idx] = PATCH_VAL;
+    if ((A[idx] || 0) < PV){{
+      A[idx] = PV;
       sq.className = 'sq filled';
-      sq.style.background = col;
-      sq.style.backgroundImage = '';
-      sq.innerHTML = '<div class="sq-inner"></div>';
-      sq.removeAttribute('data-color');
+      sq.style.background = COL[idx];
       updateCounts();
     }}
 
-    /* float message */
     var msg = document.createElement('div');
-    msg.className   = 'floatmsg';
+    msg.className = 'floatmsg';
     msg.textContent = FLOATS[Math.floor(Math.random() * FLOATS.length)];
-    msg.style.left  = e.clientX + 'px';
-    msg.style.top   = (e.clientY - 10) + 'px';
-    msg.style.color = col;
+    msg.style.left = e.clientX + 'px';
+    msg.style.top = (e.clientY - 10) + 'px';
+    msg.style.color = COL[idx];
     document.body.appendChild(msg);
     setTimeout(function(){{ msg.remove(); }}, 950);
 
-    /* open donation page */
     setTimeout(function(){{
       window.open(ZEFFY + '?patch=' + (idx + 1), '_blank');
     }}, 400);
