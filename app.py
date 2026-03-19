@@ -12,9 +12,7 @@ st.set_page_config(
 )
 
 SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/e/"
-    "2PACX-1vQGdBOCAs2ubRWec2f7JxiqfLL9A1yylLjB90k8cPR55z5S14hpjnkcED-5hCdMBLY1viCz52qOZsVG"
-    "/pub?output=csv"
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGdBOCAs2ubRWec2f7JxiqfLL9A1yylLjB90k8cPR55z5S14hpjnkcED-5hCdMBLY1viCz52qOZsVG/pub?output=csv"
 )
 PATCH_VALUE = 1000
 TOTAL = 750
