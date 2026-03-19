@@ -120,7 +120,7 @@ html,body{{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:
 .quilt-col{{flex:1;min-width:280px}}
 .sidebar{{flex:0 0 210px;min-width:180px}}
 .canvas-border{{border:3px solid #1e3d1c;border-radius:4px;padding:3px;background:#1e3d1c;line-height:0}}
-canvas{{display:block;width:100%;cursor:pointer}}
+canvas{{display:block;cursor:pointer}}
 .legend{{display:flex;gap:.9rem;margin-top:.75rem;flex-wrap:wrap;align-items:center}}
 .legend-item{{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:#4a5c47}}
 .swatch{{width:10px;height:10px;border-radius:1px;border:1px solid rgba(0,0,0,.12);flex-shrink:0}}
@@ -241,13 +241,12 @@ canvas{{display:block;width:100%;cursor:pointer}}
   var hovIdx = -1;
 
   function measure(){{
-    /* size canvas to fill its container */
-    var containerW = wrap.clientWidth - 6; /* subtract border+padding */
-    COLS = (containerW < 400) ? 15 : 25;
+    /* use document body width which is reliable in Streamlit iframes */
+    var bodyW = document.body.clientWidth || document.documentElement.clientWidth || 900;
+    var availW = Math.max(300, bodyW - 280); /* subtract sidebar + gaps */
+    COLS = (bodyW < 640) ? 15 : 25;
     ROWS = Math.ceil(TOTAL / COLS);
-    W = Math.max(200, containerW);
-    CELL = Math.max(4, Math.floor((W - (COLS - 1) * GAP) / COLS));
-    /* recalc W to be exact */
+    CELL = Math.max(6, Math.floor((availW - (COLS - 1) * GAP) / COLS));
     W = COLS * CELL + (COLS - 1) * GAP;
     H = ROWS * CELL + (ROWS - 1) * GAP;
   }}
@@ -401,9 +400,16 @@ canvas{{display:block;width:100%;cursor:pointer}}
 
   window.addEventListener('resize', drawAll);
 
-  /* initial draw after a brief delay to ensure layout is ready */
-  setTimeout(drawAll, 50);
-  drawAll();
+  /* retry drawing until body has a real width (Streamlit iframe may load slowly) */
+  function initDraw(){{
+    var bodyW = document.body.clientWidth || 0;
+    if (bodyW > 100){{
+      drawAll();
+    }} else {{
+      requestAnimationFrame(initDraw);
+    }}
+  }}
+  initDraw();
 }})();
 </script>
 </body>
