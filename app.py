@@ -113,7 +113,7 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 /* aspect-ratio collapses in Streamlit iframes when grid cols have no px width */
 .quilt-border{border:3px solid #1e3d1c;border-radius:4px;padding:3px;background:#1e3d1c;width:100%}
 .quilt-grid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px;width:100%}
-.sq{position:relative;width:100%;padding-top:100%;cursor:pointer;border-radius:1px;transition:filter .12s}
+.sq{position:relative;width:100%;cursor:pointer;border-radius:1px;transition:filter .12s}
 .sq:hover{filter:brightness(1.3);z-index:2}
 .sq-inner{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1px}
 .sq.empty .sq-inner{background:#f0ebe0;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(60,60,50,.06) 3px,rgba(60,60,50,.06) 4px)}
@@ -135,7 +135,7 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .floatmsg{position:fixed;pointer-events:none;z-index:9999;font-size:1.1rem;font-weight:500;font-family:'DM Sans',sans-serif;animation:float-up .9s ease both}
 @keyframes float-up{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-70px) scale(1.5);opacity:0}}
 @media(max-width:640px){
-  .quilt-grid{grid-template-columns:repeat(15,1fr)}
+  /* grid-template-columns set by JS for both mobile and desktop */
   .layout{flex-direction:column}
   .sidebar{flex:none;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
   .sidebar .countdown,.sidebar .donate-btn,.sidebar .micro{grid-column:span 2}
@@ -171,45 +171,61 @@ JS = """
   var FLOATS = ['thank you!', 'stitched!', 'yes!!', 'patch claimed!', 'yours now!'];
 
   var grid = document.getElementById('quilt-grid');
-  var frag = document.createDocumentFragment();
+  var GAP = 2;
 
-  for (var i = 0; i < N; i++) {
-    var outer = document.createElement('div');
-    var inner = document.createElement('div');
-    inner.className = 'sq-inner';
+  /* Calculate explicit pixel cell size from container width */
+  function getCols() { return window.innerWidth <= 640 ? 15 : 25; }
 
-    var amt = A[i] || 0;
-    var pct = Math.min(1, amt / PV);
-    outer.setAttribute('data-i', i);
-
-    if (pct >= 1) {
-      outer.className = 'sq filled';
-      inner.style.background = COL[i];
-    } else if (pct > 0) {
-      outer.className = 'sq partial';
-      var fp = Math.round(pct * 100);
-      inner.style.background = 'linear-gradient(to top,' + COL[i] + ' ' + fp + '%,#f0ebe0 ' + fp + '%)';
-    } else {
-      outer.className = 'sq empty';
-    }
-
-    outer.appendChild(inner);
-    frag.appendChild(outer);
-  }
-  grid.appendChild(frag);
-
-  /* Force square cells: calculate column width and set explicit row height */
-  function fixSquares() {
-    var first = grid.querySelector('.sq');
-    if (!first) return;
-    var w = first.offsetWidth;
+  function sizeGrid() {
+    var cols = getCols();
+    var w = grid.parentNode.offsetWidth - 6; /* subtract quilt-border padding */
+    if (w <= 0) w = grid.offsetWidth;
     if (w <= 0) return;
-    grid.style.gridAutoRows = w + 'px';
-    var s = document.getElementById('sq-fix');
-    if (!s) { s = document.createElement('style'); s.id = 'sq-fix'; document.head.appendChild(s); }
-    s.textContent = '.sq{padding-top:0!important}';
+    var cell = Math.floor((w - (cols - 1) * GAP) / cols);
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ',' + cell + 'px)';
+    grid.style.gridAutoRows = cell + 'px';
   }
-  fixSquares();
+
+  function buildGrid() {
+    sizeGrid();
+    var frag = document.createDocumentFragment();
+
+    for (var i = 0; i < N; i++) {
+      var outer = document.createElement('div');
+      var inner = document.createElement('div');
+      inner.className = 'sq-inner';
+
+      var amt = A[i] || 0;
+      var pct = Math.min(1, amt / PV);
+      outer.setAttribute('data-i', i);
+
+      if (pct >= 1) {
+        outer.className = 'sq filled';
+        inner.style.background = COL[i];
+      } else if (pct > 0) {
+        outer.className = 'sq partial';
+        var fp = Math.round(pct * 100);
+        inner.style.background = 'linear-gradient(to top,' + COL[i] + ' ' + fp + '%,#f0ebe0 ' + fp + '%)';
+      } else {
+        outer.className = 'sq empty';
+      }
+
+      outer.appendChild(inner);
+      frag.appendChild(outer);
+    }
+    grid.appendChild(frag);
+  }
+
+  /* Try immediately; if container has no width yet, retry after layout */
+  function init() {
+    var w = grid.parentNode ? grid.parentNode.offsetWidth : 0;
+    if (w > 0) {
+      buildGrid();
+    } else {
+      requestAnimationFrame(function() { setTimeout(buildGrid, 50); });
+    }
+  }
+  init();
 
   /* Animate progress bar in */
   var fill = document.getElementById('progress-fill');
@@ -221,7 +237,7 @@ JS = """
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
   }
   setTimeout(notifyHeight, 300);
-  window.addEventListener('resize', function() { fixSquares(); notifyHeight(); });
+  window.addEventListener('resize', function() { sizeGrid(); notifyHeight(); });
 
   var tip = document.getElementById('tip');
 
