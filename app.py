@@ -104,6 +104,18 @@ html,body{{width:100%;min-height:100%;overflow-x:hidden}}
   --gold:#c4923a;--terra:#8b3a2a;
   --cream:#faf8f3;--parchment:#f0ebe0;--muted:#4a5c47;
   --border:rgba(30,61,28,.15);
+  /* Cell sizing via vw — works without any JS measurement.
+     Overhead: padding(40) + gap(32) + sidebar(210) + border(12) + gaps(48) = 342px
+     Cap at 1100px to respect max-width on .wrap */
+  --cols:25;
+  --cell:calc((min(100vw,1100px) - 342px) / 25);
+}}
+@media(max-width:640px){{
+  :root{{
+    --cols:15;
+    /* Overhead mobile: padding(40) + border(12) + gaps(14×2=28) = 80px */
+    --cell:calc((100vw - 80px) / 15);
+  }}
 }}
 body{{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--forest)}}
 
@@ -138,17 +150,16 @@ body{{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--fores
 }}
 .cc-grid{{
   display:grid;
-  grid-template-columns:repeat(var(--cols,25),1fr);
+  grid-template-columns:repeat(var(--cols),var(--cell));
+  grid-auto-rows:var(--cell);
   gap:2px;background:var(--forest);
 }}
 
 /* ── Patches ── */
 .cc-patch{{
+  width:var(--cell);height:var(--cell);
   border-radius:1px;position:relative;
   cursor:pointer;overflow:hidden;
-  /* height set by JS via --cell-px; aspect-ratio as fallback */
-  height:var(--cell-px,auto);
-  aspect-ratio:1;
   transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;
 }}
 .cc-patch:hover{{transform:scale(1.5);z-index:20;filter:brightness(1.2);box-shadow:0 2px 8px rgba(0,0,0,.35)}}
@@ -197,6 +208,7 @@ body{{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--fores
   .layout{{flex-direction:column}}
   .sidebar{{flex:none;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}}
   .sidebar .countdown,.sidebar .donate-btn,.sidebar .micro{{grid-column:span 2}}
+  .cc-patch:hover{{transform:scale(1.25)}}
 }}
 </style>
 </head>
@@ -287,35 +299,34 @@ body{{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--fores
   }}
 
   /* ── sizeGrid ──────────────────────────────────────────────────────────────
-     window.innerWidth is always available inside an iframe — no DOM
-     measurement needed. We derive cell size from it directly.
-     The grid sits inside a flex layout: full width minus sidebar (210px),
-     gap (2rem=32px), padding (2×1.25rem=40px), borders (12px).
+     CSS handles sizing via vw-based --cell custom property.
+     JS duplicates the same formula as a belt-and-suspenders for resize events
+     and to set explicit heights on patches (bypasses any flex/grid resolution
+     edge cases in older browsers).
+     Formula mirrors CSS:
+       desktop: (min(iw,1100) - 342) / 25   [342 = pad+gap+sidebar+border+gaps]
+       mobile:  (iw - 80) / 15               [80  = pad+border+gaps]
   ── */
-  var COLS = 25;
-  function calcCellPx() {{
-    var iw = window.innerWidth || 800;
-    var isMobile = iw < 640;
-    var gridW;
-    if (isMobile) {{
-      gridW = iw - 40; // just padding
-    }} else {{
-      gridW = iw - 40 - 32 - 210 - 12; // padding + gap + sidebar + borders
-    }}
-    gridW = Math.max(gridW, 150);
-    return Math.floor((gridW - (COLS - 1) * 2) / COLS);
+  function calcCell() {{
+    var iw = window.innerWidth || 900;
+    if (iw < 640) return Math.max(4, (iw - 80) / 15);
+    return Math.max(4, (Math.min(iw, 1100) - 342) / 25);
   }}
 
   function applySize() {{
-    var cell = calcCellPx();
+    var cell = Math.floor(calcCell());
     if (cell < 4) return;
-    // Set CSS custom property so the CSS height:var(--cell-px) also works
-    document.documentElement.style.setProperty('--cell-px', cell + 'px');
+    var cols = window.innerWidth < 640 ? 15 : 25;
+    var root = document.documentElement;
+    root.style.setProperty('--cell', cell + 'px');
+    root.style.setProperty('--cols', cols);
     var grid = document.getElementById('cc-grid');
+    if (!grid) return;
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ',' + cell + 'px)';
     grid.style.gridAutoRows = cell + 'px';
-    // Force height on every patch — belt-and-suspenders
     var patches = grid.getElementsByClassName('cc-patch');
     for (var i = 0; i < patches.length; i++) {{
+      patches[i].style.width  = cell + 'px';
       patches[i].style.height = cell + 'px';
     }}
   }}
@@ -351,10 +362,10 @@ body{{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--fores
     }}
     grid.appendChild(frag);
 
-    // Size immediately then again after paint
+    // CSS vw-calc handles static sizing; JS runs immediately + after paint
+    // to set explicit px values as belt-and-suspenders
     applySize();
     requestAnimationFrame(applySize);
-    setTimeout(applySize, 200);
 
     attachListeners(grid);
   }}
