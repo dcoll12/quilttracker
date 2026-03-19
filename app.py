@@ -192,7 +192,6 @@ body{{
   background:var(--forest)
 }}
 .patch{{
-  aspect-ratio:1;
   border-radius:1px;
   position:relative;
   cursor:pointer;
@@ -433,6 +432,18 @@ body{{
     return PALETTE[h % PALETTE.length];
   }}
 
+  var COLS = 25;
+
+  function sizeGrid(){{
+    var grid = document.getElementById('grid');
+    if (!grid) return;
+    // cell width = grid inner width divided by column count, minus gap
+    var inner = grid.clientWidth;
+    var cell  = Math.floor((inner - (COLS - 1) * 2) / COLS);
+    grid.style.gridAutoRows = cell + 'px';
+    grid.style.gridTemplateRows = 'repeat(30,' + cell + 'px)';
+  }}
+
   function buildGrid(){{
     var grid  = document.getElementById('grid');
     var frag  = document.createDocumentFragment();
@@ -465,6 +476,7 @@ body{{
     }}
     grid.appendChild(frag);
     attachListeners(grid);
+    sizeGrid();
   }}
 
   function attachListeners(grid){{
@@ -546,9 +558,17 @@ body{{
 
   updateCountdown();
   buildGrid();
+
+  // Keep cells square on resize (e.g. Squarespace iframe resize)
+  window.addEventListener('resize', sizeGrid);
+
+  // ResizeObserver for iframe-specific width changes
+  if (window.ResizeObserver){{
+    new ResizeObserver(sizeGrid).observe(document.getElementById('grid'));
+  }}
 }})();
 </script>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=1150, scrolling=True)
+st.components.v1.html(HTML, height=1250, scrolling=True)
