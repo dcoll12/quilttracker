@@ -21,6 +21,8 @@ ROWS = 31
 GOAL = 750000
 DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
+# Google Apps Script web app URL — saves patch selections to the sheet
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwv7xQK9piIWjlgv8qQknUHSBZ-92Ru2so0yfNbXRoVgq_l20QyS7h5BZWnvfjpQXyY/exec"
 
 # Vibrant Tones palette
 PAL = [
@@ -247,6 +249,7 @@ JS = """
   var NAMES  = D.names;
   var PV     = D.patchValue;
   var ZEFFY  = D.zeffyUrl;
+  var SCRIPT = D.appsScriptUrl;
   var PCT    = D.pctGoal;
   var TOTAL  = D.total;
 
@@ -521,9 +524,35 @@ JS = """
       patches.push(pickedPatches[i].idx + 1);
       colors.push(encodeURIComponent(pickedPatches[i].color));
     }
-    var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
-    window.open(url, '_blank');
-    closeModal();
+
+    /* Save patch selections to Google Sheet via Apps Script */
+    if (SCRIPT) {
+      donateBtn.disabled = true;
+      donateBtn.textContent = 'Saving...';
+      var payload = [];
+      for (var i = 0; i < pickedPatches.length; i++) {
+        payload.push({patch: pickedPatches[i].idx + 1, color: pickedPatches[i].color, amount: donationAmount / pickedPatches.length});
+      }
+      fetch(SCRIPT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain'},
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount})
+      }).then(function() {
+        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        window.open(url, '_blank');
+        closeModal();
+      }).catch(function() {
+        /* Still open Zeffy even if sheet write fails */
+        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        window.open(url, '_blank');
+        closeModal();
+      });
+    } else {
+      var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+      window.open(url, '_blank');
+      closeModal();
+    }
   });
 
   /* ------- Grid click ------- */
@@ -565,6 +594,7 @@ data_script = (
     + f'"patchValue":{PATCH_VALUE},'
     + f'"total":{TOTAL},'
     + f'"zeffyUrl":"{ZEFFY_URL}",'
+    + f'"appsScriptUrl":"{APPS_SCRIPT_URL}",'
     + f'"pctGoal":{pct_goal}'
     + "};</script>"
 )
