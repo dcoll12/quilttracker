@@ -522,7 +522,9 @@ JS = """
     }
     if (remaining > 0) {
       /* More squares to pick after this one */
-      donateBtn.style.display = 'none';
+      donateBtn.style.display = 'block';
+      donateBtn.disabled = false;
+      donateBtn.textContent = 'Donate & Auto-fill ' + remaining + ' nearby square' + (remaining > 1 ? 's' : '') + ' \\u2192';
       nextBtn.style.display = 'block';
       nextBtn.textContent = 'Select Next Square (' + remaining + ' more) \\u2192';
       autofillBtn.style.display = 'block';
@@ -530,6 +532,7 @@ JS = """
     } else {
       /* This is the last (or only) square */
       donateBtn.style.display = 'block';
+      donateBtn.textContent = 'Donate & Claim \\u2192';
       nextBtn.style.display = 'none';
       autofillBtn.style.display = 'none';
       donateBtn.disabled = false;
@@ -684,6 +687,16 @@ JS = """
     }
     /* Save final pick */
     pickedPatches.push({idx: currentIdx, color: currentColor});
+
+    /* Auto-fill any remaining squares not manually picked */
+    var stillNeeded = totalSquares - pickedPatches.length;
+    if (stillNeeded > 0) {
+      var nearby = findNearbyUnclaimed(currentIdx, stillNeeded);
+      for (var k = 0; k < nearby.length; k++) {
+        var randColor = PAL[Math.floor(Math.random() * PAL.length)];
+        pickedPatches.push({idx: nearby[k], color: randColor});
+      }
+    }
 
     var patches = [];
     var colors = [];
