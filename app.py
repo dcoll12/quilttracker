@@ -236,9 +236,10 @@ st.markdown(
     """
     <style>
     #MainMenu, footer, header {visibility: hidden;}
-    .stApp {background: transparent !important;}
-    .block-container {padding: 0 !important; max-width: 100% !important;}
+    .stApp {background: transparent !important; overflow: hidden !important;}
+    .block-container {padding: 0 !important; max-width: 100% !important; overflow: hidden !important;}
     section[data-testid="stSidebar"] {display: none;}
+    html, body {overflow: hidden !important;}
     </style>
     """,
     unsafe_allow_html=True,
