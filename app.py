@@ -24,7 +24,7 @@ GOAL = 750000
 DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
 # Google Apps Script web app URL — saves patch selections to the sheet
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwv7xQK9piIWjlgv8qQknUHSBZ-92Ru2so0yfNbXRoVgq_l20QyS7h5BZWnvfjpQXyY/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2uVwEpigefn4SS65TpakoMsfsSDl3v7V1XxpKDyz7X5r1Q8V6iWaZcz4LGnynuISa/exec"
 
 # Vibrant Tones palette
 PAL = [
@@ -287,6 +287,8 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .modal .donate-submit:disabled{background:#aaa;cursor:not-allowed}
 #modal-next-btn{background:""" + ACCENT + """}
 #modal-next-btn:hover{background:#e07f10}
+#modal-autofill-btn{background:#577590;margin-top:.5rem}
+#modal-autofill-btn:hover{background:#4a6578}
 .pick-banner{position:fixed;top:0;left:0;right:0;background:""" + ACCENT + """;color:#fff;text-align:center;font-size:.82rem;font-weight:500;padding:.55rem 1rem;z-index:9999;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
 @media(max-width:640px){
@@ -319,6 +321,39 @@ JS = """
   for (var i = 0; i < TOTAL; i++) COL.push(PAL[Math.floor(srand() * PAL.length)]);
 
   var HINTS  = ['claim me!', 'yours?', 'fill me!', 'be bold', "c'mon!"];
+  var GRID_COLS = """ + str(COLS) + """;
+
+  /* Find nearby unclaimed squares via BFS radiating from startIdx */
+  function findNearbyUnclaimed(startIdx, count) {
+    var result = [];
+    var visited = {};
+    visited[startIdx] = true;
+    /* Mark already picked in this session */
+    for (var j = 0; j < pickedPatches.length; j++) visited[pickedPatches[j].idx] = true;
+    var queue = [startIdx];
+    var head = 0;
+    while (head < queue.length && result.length < count) {
+      var cur = queue[head++];
+      var row = Math.floor(cur / GRID_COLS);
+      var col = cur % GRID_COLS;
+      /* 8 neighbors */
+      var dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+      for (var d = 0; d < dirs.length; d++) {
+        var nr = row + dirs[d][0], nc = col + dirs[d][1];
+        if (nr < 0 || nr >= Math.ceil(TOTAL / GRID_COLS) || nc < 0 || nc >= GRID_COLS) continue;
+        var ni = nr * GRID_COLS + nc;
+        if (ni >= TOTAL || visited[ni]) continue;
+        visited[ni] = true;
+        var claimed = (A[ni] || 0) >= PV;
+        if (!claimed) {
+          result.push(ni);
+          if (result.length >= count) break;
+        }
+        queue.push(ni);
+      }
+    }
+    return result;
+  }
 
   var grid = document.getElementById('quilt-grid');
 
@@ -365,6 +400,7 @@ JS = """
   /* ------- Modal ------- */
   var overlay = document.getElementById('modal-overlay');
   var modalPatchNum = document.getElementById('modal-patch-num');
+  var nameInput = document.getElementById('modal-name');
   var amountInput = document.getElementById('modal-amount');
   var sqCountEl = document.getElementById('modal-sq-count');
   var colorArea = document.getElementById('modal-color-area');
@@ -373,6 +409,7 @@ JS = """
   var modalCloseBtn = document.getElementById('modal-close');
   var amountSection = document.getElementById('modal-amount-section');
   var pickedSummary = document.getElementById('modal-picked-summary');
+  var autofillBtn = document.getElementById('modal-autofill-btn');
 
   /* Multi-square state */
   var pickedPatches = [];   /* [{idx, color}] */
@@ -389,6 +426,7 @@ JS = """
     if (totalSquares === 0) {
       /* First open: show amount input */
       amountSection.style.display = 'block';
+      nameInput.value = '';
       amountInput.value = '20';
       pickedPatches = [];
       updateSquareCount();
@@ -478,6 +516,7 @@ JS = """
     if (numSq <= 0) {
       donateBtn.style.display = 'none';
       nextBtn.style.display = 'none';
+      autofillBtn.style.display = 'none';
       donateBtn.disabled = true;
       return;
     }
@@ -486,10 +525,13 @@ JS = """
       donateBtn.style.display = 'none';
       nextBtn.style.display = 'block';
       nextBtn.textContent = 'Select Next Square (' + remaining + ' more) \\u2192';
+      autofillBtn.style.display = 'block';
+      autofillBtn.textContent = 'Auto-fill ' + remaining + ' nearby square' + (remaining > 1 ? 's' : '') + ' with random colors';
     } else {
       /* This is the last (or only) square */
       donateBtn.style.display = 'block';
       nextBtn.style.display = 'none';
+      autofillBtn.style.display = 'none';
       donateBtn.disabled = false;
     }
   }
@@ -567,10 +609,77 @@ JS = """
     setTimeout(notifyHeight, 50);
   });
 
+  autofillBtn.addEventListener('click', function() {
+    if (currentIdx < 0 || !currentColor) {
+      alert('Please pick a color for this square first');
+      return;
+    }
+    var donorName = (nameInput.value || '').trim();
+    if (!donorName) {
+      alert('Please enter your name');
+      nameInput.focus();
+      return;
+    }
+    /* Save current pick */
+    pickedPatches.push({idx: currentIdx, color: currentColor});
+    /* Find nearby unclaimed squares for the rest */
+    var remaining = totalSquares - pickedPatches.length;
+    if (remaining > 0) {
+      var nearby = findNearbyUnclaimed(currentIdx, remaining);
+      for (var i = 0; i < nearby.length; i++) {
+        var randColor = PAL[Math.floor(Math.random() * PAL.length)];
+        pickedPatches.push({idx: nearby[i], color: randColor});
+      }
+    }
+    /* Jump straight to donate */
+    currentIdx = pickedPatches[pickedPatches.length - 1].idx;
+    currentColor = pickedPatches[pickedPatches.length - 1].color;
+    renderPickedSummary();
+    /* Trigger donate flow directly */
+    var patches = [];
+    var colors = [];
+    for (var i = 0; i < pickedPatches.length; i++) {
+      patches.push(pickedPatches[i].idx + 1);
+      colors.push(encodeURIComponent(pickedPatches[i].color));
+    }
+    if (SCRIPT) {
+      autofillBtn.disabled = true;
+      autofillBtn.textContent = 'Saving...';
+      var payload = [];
+      for (var i = 0; i < pickedPatches.length; i++) {
+        payload.push({patch: pickedPatches[i].idx + 1, color: pickedPatches[i].color, amount: donationAmount / pickedPatches.length});
+      }
+      fetch(SCRIPT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain'},
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName})
+      }).then(function() {
+        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        window.open(url, '_blank');
+        closeModal();
+      }).catch(function() {
+        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        window.open(url, '_blank');
+        closeModal();
+      });
+    } else {
+      var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+      window.open(url, '_blank');
+      closeModal();
+    }
+  });
+
   donateBtn.addEventListener('click', function() {
     if (currentIdx < 0) return;
     if (!currentColor) {
       alert('Please pick a color first');
+      return;
+    }
+    var donorName = (nameInput.value || '').trim();
+    if (!donorName) {
+      alert('Please enter your name');
+      nameInput.focus();
       return;
     }
     /* Save final pick */
@@ -595,7 +704,7 @@ JS = """
         method: 'POST',
         mode: 'no-cors',
         headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({patches: payload, totalAmount: donationAmount})
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName})
       }).then(function() {
         var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
         window.open(url, '_blank');
@@ -743,6 +852,9 @@ HTML = f"""<!DOCTYPE html>
     <span class="patch-num" id="modal-patch-num"></span>
 
     <div id="modal-amount-section">
+      <label for="modal-name">Your Name</label>
+      <input type="text" class="amount-input" id="modal-name" placeholder="How you want to appear on the quilt">
+
       <label for="modal-amount">Donation Amount</label>
       <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" placeholder="$20 minimum">
       <div class="sq-count" id="modal-sq-count"></div>
@@ -753,6 +865,7 @@ HTML = f"""<!DOCTYPE html>
     <label>Choose Your Color</label>
     <div id="modal-color-area"></div>
 
+    <button class="donate-submit" id="modal-autofill-btn" style="display:none">Auto-fill nearby squares with random colors</button>
     <button class="donate-submit" id="modal-next-btn" style="display:none">Select Next Square &rarr;</button>
     <button class="donate-submit" id="modal-donate-btn">Donate &amp; Claim &rarr;</button>
   </div>
