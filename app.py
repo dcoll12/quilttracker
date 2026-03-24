@@ -219,22 +219,7 @@ sheet_colors = data["colors"]
 sheet_names = data["names"]
 _raw_preview = data.get("_raw_preview", "")
 
-# Debug sidebar — remove once issue is resolved
-with st.expander("🔧 Debug: Sheet Data", expanded=False):
-    st.text(f"Claimed patches: {sum(1 for a in amounts if a >= PATCH_VALUE)}")
-    st.text(f"Non-zero amounts: {sum(1 for a in amounts if a > 0)}")
-    st.text(f"Non-empty colors: {sum(1 for c in sheet_colors if c)}")
-    # Show first few patches with data
-    samples = [(i, amounts[i], sheet_colors[i], sheet_names[i])
-               for i in range(TOTAL) if amounts[i] > 0 or sheet_colors[i]][:10]
-    if samples:
-        st.text("First patches with data:")
-        for idx, amt, col, name in samples:
-            st.text(f"  Patch #{idx+1}: amt={amt}, color={col}, name={name}")
-    else:
-        st.text("NO patches with data found!")
-    st.text("--- Raw CSV preview ---")
-    st.code(_raw_preview[:1000])
+
 amounts_json = json.dumps([round(a, 2) for a in amounts])
 names_json = json.dumps(sheet_names)
 default_colors = _lcg_colors()
