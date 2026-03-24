@@ -15,7 +15,7 @@ SHEET_URL = (
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGdBOCAs2ubRWec2f7JxiqfLL9A1yylLjB90k8cPR55z5S14hpjnkcED-5hCdMBLY1viCz52qOZsVG/pub?output=csv"
 )
 PATCH_VALUE = 20
-TOTAL = 958
+TOTAL = 961
 COLS = 31
 ROWS = 31
 GOAL = 750000
@@ -585,7 +585,7 @@ HTML = f"""<!DOCTYPE html>
 <div class="wrap">
   <p class="eyebrow">Salem, Indiana &middot; Washington County</p>
   <h1 class="title">The Community<br><em>Crossroads Quilt</em></h1>
-  <p class="tagline">958 patches. One for every $20 it takes to save .44 acres of this corner forever. Every voice fills a square.</p>
+  <p class="tagline">961 patches. One for every $20 it takes to save .44 acres of this corner forever. Every voice fills a square.</p>
   <span class="fun-note">&#x1F9F5; No actual sewing required.</span>
 
   <div class="progress-wrap">
@@ -630,7 +630,7 @@ HTML = f"""<!DOCTYPE html>
       <div class="stat-card">
         <div class="stat-label">Campaign Goal</div>
         <div class="stat-val">$750,000</div>
-        <div class="stat-sub">Land acquisition &middot; 958 patches</div>
+        <div class="stat-sub">Land acquisition &middot; 961 patches</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Total Raised</div>
