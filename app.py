@@ -422,7 +422,7 @@ JS = """
     }
 
     var colorStr = selectedColors.slice(0, numSq).map(function(c) { return encodeURIComponent(c); }).join(',');
-    var url = ZEFFY + '?patch=' + (currentIdx + 1) + '&squares=' + numSq + '&colors=' + colorStr;
+    var url = ZEFFY + '?patch=' + (currentIdx + 1) + '&squares=' + numSq + '&colors=' + colorStr + '&donate=true';
     window.open(url, '_blank');
     closeModal();
   });
