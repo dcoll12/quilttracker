@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import json
 import math
+import csv
+import io
 from datetime import datetime
 
 st.set_page_config(
@@ -70,15 +72,16 @@ def load_patch_data():
 
 
 def _parse_csv(csv_text):
-    rows = csv_text.strip().split("\n")
     amounts = [0.0] * TOTAL
     colors = [""] * TOTAL
     names = [""] * TOTAL
 
-    for row in rows:
-        cols = row.split(",")
+    reader = csv.reader(io.StringIO(csv_text.strip()))
+    for cols in reader:
+        if not cols:
+            continue
         # Column A: patch number (1-based)
-        raw_num = cols[0].strip().strip("\"'") if len(cols) > 0 else ""
+        raw_num = cols[0].strip()
         num_str = "".join(c for c in raw_num if c.isdigit())
         if not num_str:
             continue
@@ -88,7 +91,7 @@ def _parse_csv(csv_text):
 
         # Column B: amount
         if len(cols) > 1:
-            raw_amt = cols[1].strip().strip("\"'")
+            raw_amt = cols[1].strip()
             amt_str = "".join(c for c in raw_amt if c.isdigit() or c == ".")
             try:
                 amounts[idx] = float(amt_str)
@@ -97,13 +100,13 @@ def _parse_csv(csv_text):
 
         # Column C: color hex
         if len(cols) > 2:
-            raw_col = cols[2].strip().strip("\"'")
+            raw_col = cols[2].strip()
             if raw_col.startswith("#"):
                 colors[idx] = raw_col
 
         # Column E: name (D=email skipped for display)
         if len(cols) > 4:
-            names[idx] = cols[4].strip().strip("\"'")
+            names[idx] = cols[4].strip()
 
     return {"amounts": amounts, "colors": colors, "names": names}
 
