@@ -400,6 +400,7 @@ JS = """
   /* ------- Modal ------- */
   var overlay = document.getElementById('modal-overlay');
   var modalPatchNum = document.getElementById('modal-patch-num');
+  var nameInput = document.getElementById('modal-name');
   var amountInput = document.getElementById('modal-amount');
   var sqCountEl = document.getElementById('modal-sq-count');
   var colorArea = document.getElementById('modal-color-area');
@@ -425,6 +426,7 @@ JS = """
     if (totalSquares === 0) {
       /* First open: show amount input */
       amountSection.style.display = 'block';
+      nameInput.value = '';
       amountInput.value = '20';
       pickedPatches = [];
       updateSquareCount();
@@ -612,6 +614,12 @@ JS = """
       alert('Please pick a color for this square first');
       return;
     }
+    var donorName = (nameInput.value || '').trim();
+    if (!donorName) {
+      alert('Please enter your name');
+      nameInput.focus();
+      return;
+    }
     /* Save current pick */
     pickedPatches.push({idx: currentIdx, color: currentColor});
     /* Find nearby unclaimed squares for the rest */
@@ -645,7 +653,7 @@ JS = """
         method: 'POST',
         mode: 'no-cors',
         headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({patches: payload, totalAmount: donationAmount})
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName})
       }).then(function() {
         var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
         window.open(url, '_blank');
@@ -666,6 +674,12 @@ JS = """
     if (currentIdx < 0) return;
     if (!currentColor) {
       alert('Please pick a color first');
+      return;
+    }
+    var donorName = (nameInput.value || '').trim();
+    if (!donorName) {
+      alert('Please enter your name');
+      nameInput.focus();
       return;
     }
     /* Save final pick */
@@ -690,7 +704,7 @@ JS = """
         method: 'POST',
         mode: 'no-cors',
         headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({patches: payload, totalAmount: donationAmount})
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName})
       }).then(function() {
         var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
         window.open(url, '_blank');
@@ -838,6 +852,9 @@ HTML = f"""<!DOCTYPE html>
     <span class="patch-num" id="modal-patch-num"></span>
 
     <div id="modal-amount-section">
+      <label for="modal-name">Your Name</label>
+      <input type="text" class="amount-input" id="modal-name" placeholder="How you want to appear on the quilt">
+
       <label for="modal-amount">Donation Amount</label>
       <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" placeholder="$20 minimum">
       <div class="sq-count" id="modal-sq-count"></div>
