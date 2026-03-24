@@ -181,7 +181,7 @@ def _parse_csv(csv_text):
         amounts[idx] = per_sq  # normalize so each square shows its share
         for ni in nearby:
             amounts[ni] = per_sq
-            colors[ni] = colors[idx]
+            colors[ni] = ""  # leave blank so each square gets its own random palette color
             names[ni] = names[idx]
             reserved.add(ni)
 
