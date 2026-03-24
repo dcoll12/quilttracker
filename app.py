@@ -222,11 +222,12 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .color-swatch{width:36px;height:36px;border-radius:5px;border:3px solid transparent;cursor:pointer;transition:border-color .15s,transform .15s;flex-shrink:0}
 .color-swatch:hover{transform:scale(1.12)}
 .color-swatch.selected{border-color:#1a3040;box-shadow:0 0 0 2px #faf8f3, 0 0 0 4px #1a3040}
-.apply-all-btn{background:none;border:1px solid rgba(67,170,139,.4);color:""" + PRIMARY + """;font-size:.7rem;padding:.35rem .8rem;border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:.25rem;margin-bottom:.5rem;transition:background .15s}
-.apply-all-btn:hover{background:rgba(67,170,139,.08)}
 .modal .donate-submit{display:block;width:100%;text-align:center;background:""" + PRIMARY + """;color:#faf8f3;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;padding:.9rem 1rem;border-radius:5px;margin-top:1.25rem;border:none;cursor:pointer;transition:background .2s}
 .modal .donate-submit:hover{background:#3a9b7e}
 .modal .donate-submit:disabled{background:#aaa;cursor:not-allowed}
+#modal-next-btn{background:""" + ACCENT + """}
+#modal-next-btn:hover{background:#e07f10}
+.pick-banner{position:fixed;top:0;left:0;right:0;background:""" + ACCENT + """;color:#fff;text-align:center;font-size:.82rem;font-weight:500;padding:.55rem 1rem;z-index:9999;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
 @media(max-width:640px){
   .quilt-grid{grid-template-columns:repeat(16,1fr)}
@@ -306,16 +307,48 @@ JS = """
   var amountInput = document.getElementById('modal-amount');
   var sqCountEl = document.getElementById('modal-sq-count');
   var colorArea = document.getElementById('modal-color-area');
-  var applyAllBtn = document.getElementById('modal-apply-all');
   var donateBtn = document.getElementById('modal-donate-btn');
+  var nextBtn = document.getElementById('modal-next-btn');
   var modalCloseBtn = document.getElementById('modal-close');
+  var amountSection = document.getElementById('modal-amount-section');
+  var pickedSummary = document.getElementById('modal-picked-summary');
+
+  /* Multi-square state */
+  var pickedPatches = [];   /* [{idx, color}] */
+  var totalSquares = 0;
+  var donationAmount = 0;
   var currentIdx = -1;
+  var currentColor = '';
+  var pickingMode = false;  /* true when user is clicking grid for next square */
 
   function openModal(idx) {
     currentIdx = idx;
-    modalPatchNum.textContent = "You're claiming patch #" + (idx + 1);
-    amountInput.value = '20';
-    updateSquareCount();
+    currentColor = '';
+
+    if (totalSquares === 0) {
+      /* First open: show amount input */
+      amountSection.style.display = 'block';
+      amountInput.value = '20';
+      pickedPatches = [];
+      updateSquareCount();
+    } else {
+      /* Subsequent opens: picking next square */
+      amountSection.style.display = 'none';
+    }
+    pickingMode = false;
+    unhighlightGrid();
+
+    var sqNum = pickedPatches.length + 1;
+    if (totalSquares > 1) {
+      modalPatchNum.textContent = 'Square ' + sqNum + ' of ' + totalSquares + ' \\u2014 Patch #' + (idx + 1);
+    } else {
+      modalPatchNum.textContent = "You're claiming patch #" + (idx + 1);
+    }
+
+    renderSingleColorPicker();
+    updateButtons();
+    renderPickedSummary();
+    hidePickBanner();
     overlay.classList.add('active');
     setTimeout(notifyHeight, 50);
   }
@@ -323,6 +356,12 @@ JS = """
   function closeModal() {
     overlay.classList.remove('active');
     currentIdx = -1;
+    totalSquares = 0;
+    donationAmount = 0;
+    pickedPatches = [];
+    pickingMode = false;
+    unhighlightGrid();
+    hidePickBanner();
   }
 
   modalCloseBtn.addEventListener('click', closeModal);
@@ -336,93 +375,153 @@ JS = """
     if (numSq < 1) numSq = 0;
     sqCountEl.textContent = numSq === 0
       ? 'Enter at least $' + PV + ' to claim a square'
-      : 'At $' + val + ' you get ' + numSq + ' square' + (numSq > 1 ? 's' : '') + ' to color' + (numSq > 1 ? ' \\u2014 pick a color for each one' : '');
-    renderColorPickers(numSq);
+      : 'At $' + val + ' you get ' + numSq + ' square' + (numSq > 1 ? 's' : '') + (numSq > 1 ? ' \\u2014 pick each one on the quilt' : '');
+    totalSquares = numSq;
+    donationAmount = val;
+    updateButtons();
   }
 
   amountInput.addEventListener('input', updateSquareCount);
 
-  var selectedColors = [];
-
-  function renderColorPickers(numSq) {
+  function renderSingleColorPicker() {
     colorArea.innerHTML = '';
-    selectedColors = [];
+    var row = document.createElement('div');
+    row.className = 'color-row';
+    for (var p = 0; p < PAL.length; p++) {
+      var sw = document.createElement('div');
+      sw.className = 'color-swatch';
+      sw.style.background = PAL[p];
+      sw.setAttribute('data-color', PAL[p]);
+      sw.addEventListener('click', function(e) {
+        currentColor = e.target.getAttribute('data-color');
+        var all = colorArea.querySelectorAll('.color-swatch');
+        for (var j = 0; j < all.length; j++) {
+          all[j].classList.toggle('selected', all[j].getAttribute('data-color') === currentColor);
+        }
+      });
+      row.appendChild(sw);
+    }
+    colorArea.appendChild(row);
+    /* Pre-select */
+    var preColor = PAL[(pickedPatches.length) % PAL.length];
+    currentColor = preColor;
+    var all = row.querySelectorAll('.color-swatch');
+    for (var j = 0; j < all.length; j++) {
+      all[j].classList.toggle('selected', all[j].getAttribute('data-color') === preColor);
+    }
+  }
+
+  function updateButtons() {
+    var numSq = totalSquares;
+    var remaining = numSq - pickedPatches.length - 1; /* after saving current */
     if (numSq <= 0) {
-      applyAllBtn.style.display = 'none';
+      donateBtn.style.display = 'none';
+      nextBtn.style.display = 'none';
       donateBtn.disabled = true;
       return;
     }
-    donateBtn.disabled = false;
-    applyAllBtn.style.display = numSq > 1 ? 'inline-block' : 'none';
-
-    for (var s = 0; s < numSq; s++) {
-      selectedColors.push('');
-      var row = document.createElement('div');
-      row.className = 'color-row';
-      if (numSq > 1) {
-        var label = document.createElement('span');
-        label.className = 'row-label';
-        label.textContent = 'Sq ' + (s + 1) + ':';
-        row.appendChild(label);
-      }
-      for (var p = 0; p < PAL.length; p++) {
-        var sw = document.createElement('div');
-        sw.className = 'color-swatch';
-        sw.style.background = PAL[p];
-        sw.setAttribute('data-sq', s);
-        sw.setAttribute('data-color', PAL[p]);
-        sw.addEventListener('click', onSwatchClick);
-        row.appendChild(sw);
-      }
-      colorArea.appendChild(row);
-    }
-    /* Pre-select first color for each square */
-    for (var s2 = 0; s2 < numSq; s2++) {
-      selectColor(s2, PAL[s2 % PAL.length]);
+    if (remaining > 0) {
+      /* More squares to pick after this one */
+      donateBtn.style.display = 'none';
+      nextBtn.style.display = 'block';
+      nextBtn.textContent = 'Select Next Square (' + remaining + ' more) \\u2192';
+    } else {
+      /* This is the last (or only) square */
+      donateBtn.style.display = 'block';
+      nextBtn.style.display = 'none';
+      donateBtn.disabled = false;
     }
   }
 
-  function onSwatchClick(e) {
-    var sqIdx = parseInt(e.target.getAttribute('data-sq'));
-    var color = e.target.getAttribute('data-color');
-    selectColor(sqIdx, color);
+  function renderPickedSummary() {
+    pickedSummary.innerHTML = '';
+    if (pickedPatches.length === 0) return;
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#4a5c5a;margin-bottom:.35rem;margin-top:.5rem';
+    title.textContent = 'Selected so far';
+    pickedSummary.appendChild(title);
+    for (var i = 0; i < pickedPatches.length; i++) {
+      var item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:#1a3040;margin-bottom:.2rem';
+      var dot = document.createElement('span');
+      dot.style.cssText = 'width:14px;height:14px;border-radius:2px;flex-shrink:0;display:inline-block;background:' + pickedPatches[i].color;
+      item.appendChild(dot);
+      item.appendChild(document.createTextNode('Patch #' + (pickedPatches[i].idx + 1)));
+      pickedSummary.appendChild(item);
+    }
   }
 
-  function selectColor(sqIdx, color) {
-    selectedColors[sqIdx] = color;
-    var rows = colorArea.querySelectorAll('.color-row');
-    if (rows[sqIdx]) {
-      var swatches = rows[sqIdx].querySelectorAll('.color-swatch');
-      for (var j = 0; j < swatches.length; j++) {
-        swatches[j].classList.toggle('selected', swatches[j].getAttribute('data-color') === color);
+  function highlightGrid() {
+    var sqs = grid.querySelectorAll('.sq');
+    for (var i = 0; i < sqs.length; i++) {
+      var idx = parseInt(sqs[i].getAttribute('data-i'));
+      var claimed = (A[idx] || 0) >= PV;
+      var alreadyPicked = false;
+      for (var j = 0; j < pickedPatches.length; j++) {
+        if (pickedPatches[j].idx === idx) { alreadyPicked = true; break; }
+      }
+      if (claimed || alreadyPicked) {
+        sqs[i].style.opacity = '0.35';
+        sqs[i].style.pointerEvents = 'none';
       }
     }
   }
 
-  applyAllBtn.addEventListener('click', function() {
-    if (selectedColors.length === 0) return;
-    var first = selectedColors[0] || PAL[0];
-    for (var s = 0; s < selectedColors.length; s++) {
-      selectColor(s, first);
+  function unhighlightGrid() {
+    var sqs = grid.querySelectorAll('.sq');
+    for (var i = 0; i < sqs.length; i++) {
+      sqs[i].style.opacity = '';
+      sqs[i].style.pointerEvents = '';
     }
+  }
+
+  var pickBanner = null;
+  function showPickBanner() {
+    if (!pickBanner) {
+      pickBanner = document.createElement('div');
+      pickBanner.className = 'pick-banner';
+      document.body.appendChild(pickBanner);
+    }
+    var remaining = totalSquares - pickedPatches.length;
+    pickBanner.textContent = '\\u2190 Click an unclaimed patch on the quilt to place square ' + (pickedPatches.length + 1) + ' of ' + totalSquares + ' (' + remaining + ' remaining)';
+    pickBanner.style.display = 'block';
+  }
+  function hidePickBanner() {
+    if (pickBanner) pickBanner.style.display = 'none';
+  }
+
+  nextBtn.addEventListener('click', function() {
+    if (currentIdx < 0 || !currentColor) {
+      alert('Please pick a color first');
+      return;
+    }
+    /* Save current pick */
+    pickedPatches.push({idx: currentIdx, color: currentColor});
+    currentIdx = -1;
+    currentColor = '';
+    pickingMode = true;
+    overlay.classList.remove('active');
+    highlightGrid();
+    showPickBanner();
+    setTimeout(notifyHeight, 50);
   });
 
   donateBtn.addEventListener('click', function() {
     if (currentIdx < 0) return;
-    var val = parseInt(amountInput.value) || 0;
-    var numSq = Math.floor(val / PV);
-    if (numSq < 1) return;
-
-    /* Check all colors selected */
-    for (var c = 0; c < numSq; c++) {
-      if (!selectedColors[c]) {
-        alert('Please pick a color for square ' + (c+1));
-        return;
-      }
+    if (!currentColor) {
+      alert('Please pick a color first');
+      return;
     }
+    /* Save final pick */
+    pickedPatches.push({idx: currentIdx, color: currentColor});
 
-    var colorStr = selectedColors.slice(0, numSq).map(function(c) { return encodeURIComponent(c); }).join(',');
-    var url = ZEFFY + '?patch=' + (currentIdx + 1) + '&squares=' + numSq + '&colors=' + colorStr + '&donate=true';
+    var patches = [];
+    var colors = [];
+    for (var i = 0; i < pickedPatches.length; i++) {
+      patches.push(pickedPatches[i].idx + 1);
+      colors.push(encodeURIComponent(pickedPatches[i].color));
+    }
+    var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
     window.open(url, '_blank');
     closeModal();
   });
@@ -437,7 +536,23 @@ JS = """
     var idx = parseInt(sq.getAttribute('data-i'));
     var claimed = (A[idx] || 0) >= PV;
     if (claimed) return;
-    openModal(idx);
+
+    /* Check if already picked in current session */
+    for (var j = 0; j < pickedPatches.length; j++) {
+      if (pickedPatches[j].idx === idx) return;
+    }
+
+    if (pickingMode) {
+      /* Continue multi-square selection */
+      unhighlightGrid();
+      openModal(idx);
+    } else {
+      /* Fresh click */
+      totalSquares = 0;
+      donationAmount = 0;
+      pickedPatches = [];
+      openModal(idx);
+    }
   });
 })();
 """
@@ -539,14 +654,18 @@ HTML = f"""<!DOCTYPE html>
     <h2>Claim Your Patch</h2>
     <span class="patch-num" id="modal-patch-num"></span>
 
-    <label for="modal-amount">Donation Amount</label>
-    <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" placeholder="$20 minimum">
-    <div class="sq-count" id="modal-sq-count"></div>
+    <div id="modal-amount-section">
+      <label for="modal-amount">Donation Amount</label>
+      <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" placeholder="$20 minimum">
+      <div class="sq-count" id="modal-sq-count"></div>
+    </div>
 
-    <label>Choose Your Colors</label>
-    <button class="apply-all-btn" id="modal-apply-all" style="display:none">Apply first color to all</button>
+    <div id="modal-picked-summary"></div>
+
+    <label>Choose Your Color</label>
     <div id="modal-color-area"></div>
 
+    <button class="donate-submit" id="modal-next-btn" style="display:none">Select Next Square &rarr;</button>
     <button class="donate-submit" id="modal-donate-btn">Donate &amp; Claim &rarr;</button>
   </div>
 </div>
