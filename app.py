@@ -75,6 +75,30 @@ def load_patch_data():
         }
 
 
+def _find_nearby_unclaimed(start_idx, count, amounts, reserved):
+    """BFS outward from start_idx; return up to `count` unclaimed patch indices."""
+    result = []
+    visited = set(reserved) | {start_idx}
+    queue = [start_idx]
+    head = 0
+    while head < len(queue) and len(result) < count:
+        cur = queue[head]; head += 1
+        r, c = divmod(cur, COLS)
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < ROWS and 0 <= nc < COLS:
+                    ni = nr * COLS + nc
+                    if ni < TOTAL and ni not in visited:
+                        visited.add(ni)
+                        if amounts[ni] < PATCH_VALUE:
+                            result.append(ni)
+                        queue.append(ni)
+    return result[:count]
+
+
 def _parse_csv(csv_text):
     amounts = [0.0] * TOTAL
     colors = [""] * TOTAL
@@ -144,6 +168,22 @@ def _parse_csv(csv_text):
         # Name
         if col_name < len(cols):
             names[idx] = cols[col_name].strip()
+
+    # Expand single-row donations whose amount covers multiple squares.
+    # e.g. a $2000 entry on patch #1 should fill 100 nearby squares.
+    reserved = {i for i in range(TOTAL) if amounts[i] >= PATCH_VALUE}
+    for idx in sorted(reserved):  # sorted for determinism
+        extra = int(amounts[idx]) // PATCH_VALUE - 1
+        if extra <= 0:
+            continue
+        nearby = _find_nearby_unclaimed(idx, extra, amounts, reserved)
+        per_sq = amounts[idx] / (extra + 1)
+        amounts[idx] = per_sq  # normalize so each square shows its share
+        for ni in nearby:
+            amounts[ni] = per_sq
+            colors[ni] = colors[idx]
+            names[ni] = names[idx]
+            reserved.add(ni)
 
     return {"amounts": amounts, "colors": colors, "names": names}
 
