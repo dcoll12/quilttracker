@@ -194,23 +194,8 @@ def _days_remaining():
 
 
 def _build_grid_html(amounts, sheet_colors, default_colors):
-    """Generate patch divs. Use sheet color if claimed, else hatched empty."""
-    parts = []
-    for i in range(TOTAL):
-        amt = amounts[i]
-        claimed = amt >= PATCH_VALUE
-        if claimed:
-            col = sheet_colors[i] if sheet_colors[i] else default_colors[i]
-            cls = "sq filled"
-            style = f"background:{col}"
-        else:
-            cls = "sq empty"
-            style = ""
-        parts.append(
-            f'<div class="{cls}" data-i="{i}">'
-            f'<div class="sq-inner" style="{style}"></div></div>'
-        )
-    return "\n".join(parts)
+    """Return a canvas element. Actual drawing happens in JS."""
+    return '<canvas id="quilt-canvas" style="width:100%;cursor:crosshair"></canvas>'
 
 
 data = load_patch_data()
@@ -223,6 +208,14 @@ _raw_preview = data.get("_raw_preview", "")
 amounts_json = json.dumps([round(a, 2) for a in amounts])
 names_json = json.dumps(sheet_names)
 default_colors = _lcg_colors()
+# Pre-compute resolved colors for each cell (claimed color or empty)
+resolved_colors = []
+for i in range(TOTAL):
+    if amounts[i] >= PATCH_VALUE:
+        resolved_colors.append(sheet_colors[i] if sheet_colors[i] else default_colors[i])
+    else:
+        resolved_colors.append("")
+colors_json = json.dumps(resolved_colors)
 total_raised = round(sum(amounts))
 claimed_patches = sum(1 for a in amounts if a >= PATCH_VALUE)
 unclaimed = TOTAL - claimed_patches
@@ -267,14 +260,13 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .layout{display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap}
 .quilt-col{flex:1;min-width:280px}
 .sidebar{flex:0 0 210px;min-width:180px}
-.quilt-border{border:3px solid #1a3040;border-radius:4px;padding:3px;background:#1a3040;width:100%}
-.quilt-grid{display:grid;grid-template-columns:repeat(""" + str(COLS) + """,1fr);gap:2px;width:100%}
-.sq{position:relative;cursor:pointer;border-radius:1px;transition:filter .12s}
-.sq::before{content:'';display:block;padding-top:100%}
-.sq:hover{filter:brightness(1.3);z-index:2}
-.sq-inner{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1px}
-.sq.empty .sq-inner{background:#f0ebe0;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(60,60,50,.06) 3px,rgba(60,60,50,.06) 4px)}
-.sq.filled .sq-inner::after{content:'';position:absolute;inset:18%;border:1px solid rgba(255,255,255,.22)}
+.quilt-border{border:3px solid #1a3040;border-radius:4px;padding:3px;background:#1a3040;width:100%;position:relative;overflow:hidden}
+.quilt-grid{position:relative;width:100%}
+#quilt-canvas{display:block}
+.zoom-controls{display:flex;gap:.35rem;margin-top:.5rem;align-items:center}
+.zoom-btn{background:#1a3040;color:#faf8f3;border:none;border-radius:3px;width:28px;height:28px;font-size:1rem;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center}
+.zoom-btn:hover{background:#2a6c5a}
+.zoom-label{font-size:.65rem;color:#4a5c5a;margin:0 .3rem}
 .legend{display:flex;gap:.9rem;margin-top:.75rem;flex-wrap:wrap;align-items:center}
 .legend-item{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:#4a5c5a}
 .swatch{width:10px;height:10px;border-radius:1px;border:1px solid rgba(0,0,0,.12);flex-shrink:0}
@@ -318,7 +310,6 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .pick-banner{position:fixed;top:0;left:0;right:0;background:""" + ACCENT + """;color:#fff;text-align:center;font-size:.82rem;font-weight:500;padding:.55rem 1rem;z-index:9999;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
 @media(max-width:640px){
-  .quilt-grid{grid-template-columns:repeat(16,1fr)}
   .layout{flex-direction:column}
   .sidebar{flex:none;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
   .sidebar .countdown,.sidebar .donate-btn,.sidebar .micro{grid-column:span 2}
@@ -327,27 +318,117 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 }
 """
 
-# -- JS — interactivity, modal, tooltips ----------------------------------------
-JS = """
+# -- JS — canvas-based quilt with zoom/pan ----------------------------------------
+JS = r"""
 (function() {
   var D      = window.__QD__;
   var A      = D.amounts;
   var NAMES  = D.names;
+  var COLORS = D.colors;
   var PV     = D.patchValue;
   var ZEFFY  = D.zeffyUrl;
   var SCRIPT = D.appsScriptUrl;
   var PCT    = D.pctGoal;
   var TOTAL  = D.total;
+  var GRID_COLS = D.cols;
+  var GRID_ROWS = D.rows;
 
   var PAL = ['#F94144','#F3722C','#F8961E','#F9844A','#F9C74F','#90BE6D','#43AA8B','#4D908E','#577590','#277DA1'];
-
-  var seed = 99991;
-  function srand() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
-  var COL = [];
-  for (var i = 0; i < TOTAL; i++) COL.push(PAL[Math.floor(srand() * PAL.length)]);
-
   var HINTS  = ['claim me!', 'yours?', 'fill me!', 'be bold', "c'mon!"];
-  var GRID_COLS = """ + str(COLS) + """;
+
+  /* ---- Canvas setup ---- */
+  var canvas = document.getElementById('quilt-canvas');
+  var ctx = canvas.getContext('2d');
+  var CELL = 6;
+  var GAP = 1;
+  var zoom = 1;
+  var minZoom = 1;
+  var maxZoom = 8;
+  var panX = 0, panY = 0;
+  var isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+  var hoverIdx = -1;
+  var pickedPatches = [];
+  var pickingMode = false;
+  var fullW = GRID_COLS * (CELL + GAP) + GAP;
+  var fullH = GRID_ROWS * (CELL + GAP) + GAP;
+
+  function sizeCanvas() {
+    var containerW = canvas.parentElement.clientWidth;
+    var scale = containerW / fullW;
+    minZoom = scale;
+    if (zoom < minZoom) zoom = minZoom;
+    canvas.width = containerW;
+    var visH = Math.min(fullH * zoom, Math.max(400, fullH * minZoom));
+    canvas.height = visH;
+    canvas.style.height = visH + 'px';
+    clampPan();
+    draw();
+  }
+
+  function clampPan() {
+    var maxPanX = Math.max(0, fullW * zoom - canvas.width);
+    var maxPanY = Math.max(0, fullH * zoom - canvas.height);
+    panX = Math.max(0, Math.min(panX, maxPanX));
+    panY = Math.max(0, Math.min(panY, maxPanY));
+  }
+
+  var EMPTY_BG = '#f0ebe0';
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#1a3040';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    var cellZ = CELL * zoom;
+    var gapZ = GAP * zoom;
+    var step = cellZ + gapZ;
+    var startCol = Math.max(0, Math.floor(panX / step));
+    var startRow = Math.max(0, Math.floor(panY / step));
+    var endCol = Math.min(GRID_COLS, Math.ceil((panX + canvas.width) / step));
+    var endRow = Math.min(GRID_ROWS, Math.ceil((panY + canvas.height) / step));
+
+    for (var r = startRow; r < endRow; r++) {
+      for (var c = startCol; c < endCol; c++) {
+        var idx = r * GRID_COLS + c;
+        if (idx >= TOTAL) continue;
+        var x = c * step - panX + gapZ;
+        var y = r * step - panY + gapZ;
+        var amt = A[idx] || 0;
+        var claimed = amt >= PV;
+        var sessionColor = null;
+        for (var p = 0; p < pickedPatches.length; p++) {
+          if (pickedPatches[p].idx === idx) { sessionColor = pickedPatches[p].color; break; }
+        }
+        if (sessionColor) {
+          ctx.fillStyle = sessionColor;
+        } else if (claimed) {
+          ctx.fillStyle = COLORS[idx] || '#43AA8B';
+        } else {
+          ctx.fillStyle = EMPTY_BG;
+        }
+        ctx.fillRect(x, y, cellZ, cellZ);
+        if (idx === hoverIdx) {
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.fillRect(x, y, cellZ, cellZ);
+          ctx.strokeStyle = '#1a3040';
+          ctx.lineWidth = Math.max(1, zoom * 0.5);
+          ctx.strokeRect(x, y, cellZ, cellZ);
+        }
+        if (pickingMode && (claimed || sessionColor)) {
+          ctx.fillStyle = 'rgba(250,248,243,0.6)';
+          ctx.fillRect(x, y, cellZ, cellZ);
+        }
+      }
+    }
+  }
+
+  function hitTest(mx, my) {
+    var step = (CELL * zoom) + (GAP * zoom);
+    var col = Math.floor((mx + panX) / step);
+    var row = Math.floor((my + panY) / step);
+    if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return -1;
+    var idx = row * GRID_COLS + col;
+    return idx < TOTAL ? idx : -1;
+  }
 
   /* Find nearby unclaimed squares via BFS radiating from startIdx */
   function findNearbyUnclaimed(startIdx, count) {
@@ -366,7 +447,7 @@ JS = """
       var dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
       for (var d = 0; d < dirs.length; d++) {
         var nr = row + dirs[d][0], nc = col + dirs[d][1];
-        if (nr < 0 || nr >= Math.ceil(TOTAL / GRID_COLS) || nc < 0 || nc >= GRID_COLS) continue;
+        if (nr < 0 || nr >= GRID_ROWS || nc < 0 || nc >= GRID_COLS) continue;
         var ni = nr * GRID_COLS + nc;
         if (ni >= TOTAL || visited[ni]) continue;
         visited[ni] = true;
@@ -381,8 +462,6 @@ JS = """
     return result;
   }
 
-  var grid = document.getElementById('quilt-grid');
-
   /* Animate progress bar */
   var fill = document.getElementById('progress-fill');
   if (fill) setTimeout(function() { fill.style.width = PCT + '%'; }, 150);
@@ -393,27 +472,37 @@ JS = """
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
   }
   setTimeout(notifyHeight, 300);
-  window.addEventListener('resize', notifyHeight);
+  window.addEventListener('resize', function() { sizeCanvas(); notifyHeight(); });
 
   var tip = document.getElementById('tip');
 
-  grid.addEventListener('mousemove', function(e) {
-    var sq = e.target;
-    if (sq && !sq.hasAttribute('data-i') && sq.parentNode && sq.parentNode.hasAttribute('data-i')) {
-      sq = sq.parentNode;
+  /* ---- Canvas mouse events ---- */
+  canvas.addEventListener('mousemove', function(e) {
+    if (isDragging) {
+      panX = panStartX + (dragStartX - e.clientX);
+      panY = panStartY + (dragStartY - e.clientY);
+      clampPan();
+      draw();
+      tip.style.opacity = 0;
+      return;
     }
-    if (!sq || !sq.hasAttribute('data-i')) { tip.style.opacity = 0; return; }
-    var idx = parseInt(sq.getAttribute('data-i'));
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var idx = hitTest(mx, my);
+    hoverIdx = idx;
+    draw();
+    if (idx < 0) { tip.style.opacity = 0; return; }
     var amt = A[idx] || 0;
     var claimed = amt >= PV;
     var msg;
     if (!claimed && amt <= 0) {
-      msg = 'Patch #' + (idx+1) + ' \\u2013 ' + HINTS[idx % HINTS.length];
+      msg = 'Patch #' + (idx+1) + ' \u2013 ' + HINTS[idx % HINTS.length];
     } else if (claimed) {
       var name = NAMES[idx] || 'Anonymous';
-      msg = 'Patch #' + (idx+1) + ' \\u2013 ' + name + ' \\u2013 $' + amt.toLocaleString();
+      msg = 'Patch #' + (idx+1) + ' \u2013 ' + name + ' \u2013 $' + amt.toLocaleString();
     } else {
-      msg = 'Patch #' + (idx+1) + ' \\u2013 $' + amt.toLocaleString();
+      msg = 'Patch #' + (idx+1) + ' \u2013 $' + amt.toLocaleString();
     }
     tip.textContent = msg;
     tip.style.opacity = 1;
@@ -421,7 +510,77 @@ JS = """
     tip.style.top  = (e.clientY - 36) + 'px';
   });
 
-  grid.addEventListener('mouseleave', function() { tip.style.opacity = 0; });
+  canvas.addEventListener('mouseleave', function() { tip.style.opacity = 0; hoverIdx = -1; draw(); });
+
+  canvas.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    panStartX = panX;
+    panStartY = panY;
+    canvas.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  window.addEventListener('mouseup', function(e) {
+    if (!isDragging) return;
+    var dx = Math.abs(e.clientX - dragStartX);
+    var dy = Math.abs(e.clientY - dragStartY);
+    isDragging = false;
+    canvas.style.cursor = 'crosshair';
+    if (dx < 4 && dy < 4) {
+      var rect = canvas.getBoundingClientRect();
+      handleGridClick(hitTest(e.clientX - rect.left, e.clientY - rect.top));
+    }
+  });
+
+  canvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var wx = (mx + panX) / zoom;
+    var wy = (my + panY) / zoom;
+    var delta = e.deltaY < 0 ? 1.15 : 0.87;
+    zoom = Math.max(minZoom, Math.min(maxZoom, zoom * delta));
+    panX = wx * zoom - mx;
+    panY = wy * zoom - my;
+    clampPan();
+    draw();
+    updateZoomLabel();
+  }, {passive: false});
+
+  /* Zoom controls */
+  var zoomInBtn = document.getElementById('zoom-in');
+  var zoomOutBtn = document.getElementById('zoom-out');
+  var zoomResetBtn = document.getElementById('zoom-reset');
+  var zoomLbl = document.getElementById('zoom-label');
+
+  function updateZoomLabel() {
+    if (zoomLbl) zoomLbl.textContent = Math.round(zoom / minZoom * 100) + '%';
+  }
+
+  if (zoomInBtn) zoomInBtn.addEventListener('click', function() {
+    var cx = canvas.width / 2, cy = canvas.height / 2;
+    var wx = (cx + panX) / zoom, wy = (cy + panY) / zoom;
+    zoom = Math.min(maxZoom, zoom * 1.4);
+    panX = wx * zoom - cx; panY = wy * zoom - cy;
+    clampPan(); draw(); updateZoomLabel();
+  });
+  if (zoomOutBtn) zoomOutBtn.addEventListener('click', function() {
+    var cx = canvas.width / 2, cy = canvas.height / 2;
+    var wx = (cx + panX) / zoom, wy = (cy + panY) / zoom;
+    zoom = Math.max(minZoom, zoom * 0.7);
+    panX = wx * zoom - cx; panY = wy * zoom - cy;
+    clampPan(); draw(); updateZoomLabel();
+  });
+  if (zoomResetBtn) zoomResetBtn.addEventListener('click', function() {
+    zoom = minZoom; panX = 0; panY = 0;
+    clampPan(); draw(); updateZoomLabel();
+  });
+
+  sizeCanvas();
+  updateZoomLabel();
 
   /* ------- Modal ------- */
   var overlay = document.getElementById('modal-overlay');
@@ -438,12 +597,10 @@ JS = """
   var autofillBtn = document.getElementById('modal-autofill-btn');
 
   /* Multi-square state */
-  var pickedPatches = [];   /* [{idx, color}] */
   var totalSquares = 0;
   var donationAmount = 0;
   var currentIdx = -1;
   var currentColor = '';
-  var pickingMode = false;  /* true when user is clicking grid for next square */
 
   function openModal(idx) {
     currentIdx = idx;
@@ -461,7 +618,7 @@ JS = """
       amountSection.style.display = 'none';
     }
     pickingMode = false;
-    unhighlightGrid();
+    draw();
 
     var sqNum = pickedPatches.length + 1;
     if (totalSquares > 1) {
@@ -485,7 +642,7 @@ JS = """
     donationAmount = 0;
     pickedPatches = [];
     pickingMode = false;
-    unhighlightGrid();
+    draw();
     hidePickBanner();
   }
 
@@ -583,30 +740,6 @@ JS = """
     }
   }
 
-  function highlightGrid() {
-    var sqs = grid.querySelectorAll('.sq');
-    for (var i = 0; i < sqs.length; i++) {
-      var idx = parseInt(sqs[i].getAttribute('data-i'));
-      var claimed = (A[idx] || 0) >= PV;
-      var alreadyPicked = false;
-      for (var j = 0; j < pickedPatches.length; j++) {
-        if (pickedPatches[j].idx === idx) { alreadyPicked = true; break; }
-      }
-      if (claimed || alreadyPicked) {
-        sqs[i].style.opacity = '0.35';
-        sqs[i].style.pointerEvents = 'none';
-      }
-    }
-  }
-
-  function unhighlightGrid() {
-    var sqs = grid.querySelectorAll('.sq');
-    for (var i = 0; i < sqs.length; i++) {
-      sqs[i].style.opacity = '';
-      sqs[i].style.pointerEvents = '';
-    }
-  }
-
   var pickBanner = null;
   function showPickBanner() {
     if (!pickBanner) {
@@ -633,7 +766,7 @@ JS = """
     currentColor = '';
     pickingMode = true;
     overlay.classList.remove('active');
-    highlightGrid();
+    draw();
     showPickBanner();
     setTimeout(notifyHeight, 50);
   });
@@ -761,34 +894,23 @@ JS = """
     }
   });
 
-  /* ------- Grid click ------- */
-  grid.addEventListener('click', function(e) {
-    var sq = e.target;
-    if (sq && !sq.hasAttribute('data-i') && sq.parentNode && sq.parentNode.hasAttribute('data-i')) {
-      sq = sq.parentNode;
-    }
-    if (!sq || !sq.hasAttribute('data-i')) return;
-    var idx = parseInt(sq.getAttribute('data-i'));
+  /* ------- Grid click (called from mouseup) ------- */
+  function handleGridClick(idx) {
+    if (idx < 0) return;
     var claimed = (A[idx] || 0) >= PV;
     if (claimed) return;
-
-    /* Check if already picked in current session */
     for (var j = 0; j < pickedPatches.length; j++) {
       if (pickedPatches[j].idx === idx) return;
     }
-
     if (pickingMode) {
-      /* Continue multi-square selection */
-      unhighlightGrid();
       openModal(idx);
     } else {
-      /* Fresh click */
       totalSquares = 0;
       donationAmount = 0;
       pickedPatches = [];
       openModal(idx);
     }
-  });
+  }
 })();
 """
 
@@ -797,8 +919,11 @@ data_script = (
     "<script>window.__QD__ = {"
     + f'"amounts":{amounts_json},'
     + f'"names":{names_json},'
+    + f'"colors":{colors_json},'
     + f'"patchValue":{PATCH_VALUE},'
     + f'"total":{TOTAL},'
+    + f'"cols":{COLS},'
+    + f'"rows":{ROWS},'
     + f'"zeffyUrl":"{ZEFFY_URL}",'
     + f'"appsScriptUrl":"{APPS_SCRIPT_URL}",'
     + f'"pctGoal":{pct_goal}'
@@ -858,7 +983,13 @@ HTML = f"""<!DOCTYPE html>
         <div class="legend-item">
           <div class="swatch" style="background:#f0ebe0;border-color:#aaa"></div>Unclaimed
         </div>
-        <span style="font-size:.65rem;color:#4a5c5a;font-style:italic;margin-left:auto">hover &middot; click to claim</span>
+        <span style="font-size:.65rem;color:#4a5c5a;font-style:italic;margin-left:auto">scroll to zoom &middot; drag to pan &middot; click to claim</span>
+      </div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-out">&minus;</button>
+        <span class="zoom-label" id="zoom-label">100%</span>
+        <button class="zoom-btn" id="zoom-in">+</button>
+        <button class="zoom-btn" id="zoom-reset" style="font-size:.6rem;width:auto;padding:0 .5rem">Reset</button>
       </div>
     </div>
 
