@@ -58,16 +58,20 @@ def _lcg_colors():
 
 @st.cache_data(ttl=300)
 def load_patch_data():
-    """Load sheet CSV. Columns: A=patch#, B=amount, C=color, D=email, E=name."""
+    """Load sheet CSV. Columns detected from header row."""
     try:
         r = requests.get(SHEET_URL, timeout=10)
         r.raise_for_status()
-        return _parse_csv(r.text)
-    except Exception:
+        result = _parse_csv(r.text)
+        # Store raw preview for debug sidebar
+        result["_raw_preview"] = r.text[:1500]
+        return result
+    except Exception as e:
         return {
             "amounts": [0.0] * TOTAL,
             "colors": [""] * TOTAL,
             "names": [""] * TOTAL,
+            "_raw_preview": f"FETCH ERROR: {e}",
         }
 
 
@@ -77,11 +81,44 @@ def _parse_csv(csv_text):
     names = [""] * TOTAL
 
     reader = csv.reader(io.StringIO(csv_text.strip()))
-    for cols in reader:
+    rows = list(reader)
+    if not rows:
+        return {"amounts": amounts, "colors": colors, "names": names}
+
+    # --- detect column layout from header row ---
+    # Map each role to a column index; default to legacy fixed positions
+    col_patch = 0
+    col_amount = 1
+    col_color = 2
+    col_name = 4  # legacy: column E (D=email skipped)
+
+    header = [c.strip().lower() for c in rows[0]]
+    header_detected = False
+
+    # Check if the first row looks like a header (column A is not a number)
+    first_val = "".join(c for c in header[0] if c.isdigit())
+    if not first_val:
+        header_detected = True
+        # Build a map: look for keywords in each column header
+        for i, h in enumerate(header):
+            if h in ("patch", "patch #", "patch#", "patch number", "patchnumber", "number", "square", "#"):
+                col_patch = i
+            elif h in ("amount", "donation", "donated", "amt", "$", "donation amount"):
+                col_amount = i
+            elif h in ("color", "colour", "hex", "color hex", "color1", "colour1"):
+                col_color = i
+            elif h in ("name", "donor", "donor name", "donorname"):
+                col_name = i
+
+    data_rows = rows[1:] if header_detected else rows
+
+    for cols in data_rows:
         if not cols:
             continue
-        # Column A: patch number (1-based)
-        raw_num = cols[0].strip()
+        # Patch number (1-based)
+        if col_patch >= len(cols):
+            continue
+        raw_num = cols[col_patch].strip()
         num_str = "".join(c for c in raw_num if c.isdigit())
         if not num_str:
             continue
@@ -89,24 +126,24 @@ def _parse_csv(csv_text):
         if idx < 0 or idx >= TOTAL:
             continue
 
-        # Column B: amount
-        if len(cols) > 1:
-            raw_amt = cols[1].strip()
+        # Amount
+        if col_amount < len(cols):
+            raw_amt = cols[col_amount].strip()
             amt_str = "".join(c for c in raw_amt if c.isdigit() or c == ".")
             try:
                 amounts[idx] = float(amt_str)
             except ValueError:
                 pass
 
-        # Column C: color hex
-        if len(cols) > 2:
-            raw_col = cols[2].strip()
+        # Color hex
+        if col_color < len(cols):
+            raw_col = cols[col_color].strip()
             if raw_col.startswith("#"):
                 colors[idx] = raw_col
 
-        # Column E: name (D=email skipped for display)
-        if len(cols) > 4:
-            names[idx] = cols[4].strip()
+        # Name
+        if col_name < len(cols):
+            names[idx] = cols[col_name].strip()
 
     return {"amounts": amounts, "colors": colors, "names": names}
 
@@ -140,6 +177,24 @@ data = load_patch_data()
 amounts = data["amounts"]
 sheet_colors = data["colors"]
 sheet_names = data["names"]
+_raw_preview = data.get("_raw_preview", "")
+
+# Debug sidebar — remove once issue is resolved
+with st.expander("🔧 Debug: Sheet Data", expanded=False):
+    st.text(f"Claimed patches: {sum(1 for a in amounts if a >= PATCH_VALUE)}")
+    st.text(f"Non-zero amounts: {sum(1 for a in amounts if a > 0)}")
+    st.text(f"Non-empty colors: {sum(1 for c in sheet_colors if c)}")
+    # Show first few patches with data
+    samples = [(i, amounts[i], sheet_colors[i], sheet_names[i])
+               for i in range(TOTAL) if amounts[i] > 0 or sheet_colors[i]][:10]
+    if samples:
+        st.text("First patches with data:")
+        for idx, amt, col, name in samples:
+            st.text(f"  Patch #{idx+1}: amt={amt}, color={col}, name={name}")
+    else:
+        st.text("NO patches with data found!")
+    st.text("--- Raw CSV preview ---")
+    st.code(_raw_preview[:1000])
 amounts_json = json.dumps([round(a, 2) for a in amounts])
 names_json = json.dumps(sheet_names)
 default_colors = _lcg_colors()
