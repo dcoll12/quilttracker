@@ -17,9 +17,9 @@ SHEET_URL = (
     "https://docs.google.com/spreadsheets/d/1f9IrhyO7JxL3uzcgXBjSRCs_HnxgzKZwZODqzPGqE9g/gviz/tq?tqx=out:csv&gid=0"
 )
 PATCH_VALUE = 20
-TOTAL = 961
-COLS = 31
-ROWS = 31
+TOTAL = 37500
+COLS = 250
+ROWS = 150
 GOAL = 750000
 DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
@@ -821,7 +821,7 @@ HTML = f"""<!DOCTYPE html>
 <div class="wrap">
   <p class="eyebrow">Salem, Indiana &middot; Washington County</p>
   <h1 class="title">The Community<br><em>Crossroads Quilt</em></h1>
-  <p class="tagline">961 patches. One for every $20 it takes to save .44 acres of this corner forever. Every voice fills a square.</p>
+  <p class="tagline">37,500 patches. One for every $20 it takes to save .44 acres of this corner forever. Every voice fills a square.</p>
   <span class="fun-note">&#x1F9F5; No actual sewing required.</span>
 
   <div class="progress-wrap">
@@ -866,7 +866,7 @@ HTML = f"""<!DOCTYPE html>
       <div class="stat-card">
         <div class="stat-label">Campaign Goal</div>
         <div class="stat-val">$750,000</div>
-        <div class="stat-sub">Land acquisition &middot; 961 patches</div>
+        <div class="stat-sub">Land acquisition &middot; 37,500 patches</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Total Raised</div>
