@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGdBOCAs2ubRWec2f7JxiqfLL9A1yylLjB90k8cPR55z5S14hpjnkcED-5hCdMBLY1viCz52qOZsVG/pub?output=csv"
+    "https://docs.google.com/spreadsheets/d/1f9IrhyO7JxL3uzcgXBjSRCs_HnxgzKZwZODqzPGqE9g/gviz/tq?tqx=out:csv&gid=0"
 )
 PATCH_VALUE = 20
 TOTAL = 961
