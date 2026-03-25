@@ -228,10 +228,11 @@ grid_html = _build_grid_html(amounts, sheet_colors, default_colors)
 st.markdown(
     """
     <style>
-    #MainMenu, footer, header, [data-testid="stHeader"], [data-testid="stDecoration"] {visibility: hidden; height: 0 !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; position: absolute !important;}
+    #MainMenu, footer, header, [data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stToolbar"], .stDeployButton, [data-testid="stStatusWidget"] {display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important;}
     .stApp {background: transparent !important; overflow: hidden !important;}
-    .stApp > header {display: none !important;}
-    .block-container {padding: 0 !important; max-width: 100% !important; overflow: hidden !important; margin-top: 0 !important;}
+    .stApp > header {display: none !important; height: 0 !important;}
+    .stApp [data-testid="stHeader"] {display: none !important; height: 0 !important;}
+    .block-container {padding-top: 0 !important; max-width: 100% !important; overflow: hidden !important; margin-top: -3rem !important;}
     section[data-testid="stSidebar"] {display: none;}
     html, body {overflow: hidden !important;}
     </style>
