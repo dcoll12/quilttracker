@@ -114,7 +114,7 @@ def _parse_csv(csv_text):
     col_patch = 0
     col_amount = 1
     col_color = 2
-    col_name = 4  # legacy: column E (D=email skipped)
+    col_name = 3  # column D (Name)
 
     header = [c.strip().lower() for c in rows[0]]
     header_detected = False
