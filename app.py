@@ -24,7 +24,7 @@ GOAL = 750000
 DEADLINE = datetime(2026, 7, 9, 17, 0, 0)
 ZEFFY_URL = "https://www.zeffy.com/en-US/peer-to-peer/community-crossroads"
 # Google Apps Script web app URL — saves patch selections to the sheet
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2uVwEpigefn4SS65TpakoMsfsSDl3v7V1XxpKDyz7X5r1Q8V6iWaZcz4LGnynuISa/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwD4IepOS-xnU5y6CFLzI8PYz1YjptE3RzvWWUr8Ml5AtjpRmraVQd9uplCRmxRjMR2/exec"
 
 # Vibrant Tones palette
 PAL = [
