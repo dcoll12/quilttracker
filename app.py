@@ -228,9 +228,10 @@ grid_html = _build_grid_html(amounts, sheet_colors, default_colors)
 st.markdown(
     """
     <style>
-    #MainMenu, footer, header {visibility: hidden;}
+    #MainMenu, footer, header, [data-testid="stHeader"], [data-testid="stDecoration"] {visibility: hidden; height: 0 !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; position: absolute !important;}
     .stApp {background: transparent !important; overflow: hidden !important;}
-    .block-container {padding: 0 !important; max-width: 100% !important; overflow: hidden !important;}
+    .stApp > header {display: none !important;}
+    .block-container {padding: 0 !important; max-width: 100% !important; overflow: hidden !important; margin-top: 0 !important;}
     section[data-testid="stSidebar"] {display: none;}
     html, body {overflow: hidden !important;}
     </style>
