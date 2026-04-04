@@ -1148,13 +1148,37 @@ JS = r"""
         var payload = [];
         var txnId = buildTxnId('design');
         for (var i = 0; i < patchList.length; i++) {
-          payload.push({patch: patchList[i], color: decodeURIComponent(colorList[i]), amount: PV});
+          payload.push({patch: patchList[i], color: decodeURIComponent(colorList[i]), amount: PV, name: donorName, design: designName});
         }
+        var checkoutUrl = buildZeffyUrl({
+          design: encodeURIComponent(designName),
+          donor: encodeURIComponent(designDonorName),
+          patch: patchList.join(','),
+          squares: patchList.length,
+          colors: colorList.join(','),
+          donate: 'true',
+          amount: totalAmt,
+          donation_amount: totalAmt,
+          suggested_amount: totalAmt
+        });
         fetch(SCRIPT, {
           method: 'POST', mode: 'no-cors',
           headers: {'Content-Type': 'text/plain'},
           body: JSON.stringify({patches: payload, totalAmount: totalAmt, name: donorName, transaction_id: txnId, logged_at: new Date().toISOString()})
         });
+      } else {
+        var checkoutUrl = buildZeffyUrl({
+          design: encodeURIComponent(designName),
+          donor: encodeURIComponent(designDonorName),
+          patch: patchList.join(','),
+          squares: patchList.length,
+          colors: colorList.join(','),
+          donate: 'true',
+          amount: totalAmt,
+          donation_amount: totalAmt,
+          suggested_amount: totalAmt
+        });
+        window.open(checkoutUrl, '_blank');
       }
 
       /* Open Zeffy */
