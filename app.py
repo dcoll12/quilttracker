@@ -479,6 +479,24 @@ JS = r"""
         }
       }
     }
+
+    if (window.__designPlacement && hoverIdx >= 0) {
+      var placement = buildDesignPlacement(hoverIdx);
+      if (placement) {
+        for (var i = 0; i < placement.patches.length; i++) {
+          var pidx = placement.patches[i] - 1;
+          var rr = Math.floor(pidx / GRID_COLS);
+          var cc = pidx % GRID_COLS;
+          var px = cc * step - panX + gapZ;
+          var py = rr * step - panY + gapZ;
+          ctx.fillStyle = placement.conflict ? 'rgba(249,65,68,0.45)' : 'rgba(67,170,139,0.45)';
+          ctx.fillRect(px, py, cellZ, cellZ);
+          ctx.strokeStyle = placement.conflict ? '#F94144' : '#43AA8B';
+          ctx.lineWidth = Math.max(1, zoom * 0.5);
+          ctx.strokeRect(px, py, cellZ, cellZ);
+        }
+      }
+    }
   }
 
   function hitTest(mx, my) {
@@ -488,6 +506,33 @@ JS = r"""
     if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return -1;
     var idx = row * GRID_COLS + col;
     return idx < TOTAL ? idx : -1;
+  }
+
+  function buildDesignPlacement(startIdx) {
+    if (!window.__designPlacement || startIdx < 0) return null;
+    var dp = window.__designPlacement;
+    var grid = dp.grid;
+    var startRow = Math.floor(startIdx / GRID_COLS);
+    var startCol = startIdx % GRID_COLS;
+    var patches = [];
+    var colors = [];
+    var conflict = false;
+
+    for (var r = 0; r < grid.length; r++) {
+      for (var c = 0; c < grid[r].length; c++) {
+        if (!grid[r][c]) continue;
+        var pr = startRow + r;
+        var pc = startCol + c;
+        if (pr >= GRID_ROWS || pc >= GRID_COLS) { conflict = true; break; }
+        var pidx = pr * GRID_COLS + pc;
+        if ((A[pidx] || 0) >= PV) { conflict = true; break; }
+        patches.push(pidx + 1);
+        colors.push(grid[r][c]);
+      }
+      if (conflict) break;
+    }
+
+    return { name: dp.name, conflict: conflict, patches: patches, colors: colors };
   }
 
   /* Find nearby unclaimed squares via BFS radiating from startIdx */
@@ -957,44 +1002,27 @@ JS = r"""
   /* ------- Grid click (called from mouseup) ------- */
   function handleGridClick(idx) {
     if (idx < 0) return;
-    var claimed = (A[idx] || 0) >= PV;
-    if (claimed) return;
 
     /* Design placement mode */
     if (window.__designPlacement) {
-      var dp = window.__designPlacement;
-      var grid = dp.grid;
-      var designName = dp.name;
-      var startRow = Math.floor(idx / COLS);
-      var startCol = idx % COLS;
-      var patchList = [];
-      var colorList = [];
-      var conflict = false;
-
-      for (var r = 0; r < grid.length; r++) {
-        for (var c = 0; c < grid[r].length; c++) {
-          if (grid[r][c]) {
-            var pr = startRow + r;
-            var pc = startCol + c;
-            if (pr >= ROWS || pc >= COLS) { conflict = true; break; }
-            var pidx = pr * COLS + pc;
-            if ((A[pidx] || 0) >= PV) { conflict = true; break; }
-            patchList.push(pidx + 1);
-            colorList.push(encodeURIComponent(grid[r][c]));
-          }
-        }
-        if (conflict) break;
-      }
-
-      if (conflict) {
+      var placement = buildDesignPlacement(idx);
+      if (!placement) return;
+      if (placement.conflict) {
         alert('Design doesn\u2019t fit here \u2014 some patches overlap with claimed patches or the edge. Try another spot.');
         return;
+      }
+
+      var designName = placement.name;
+      var patchList = placement.patches;
+      var colorList = [];
+      for (var i = 0; i < placement.colors.length; i++) {
+        colorList.push(encodeURIComponent(placement.colors[i]));
       }
 
       /* Preview the design on canvas */
       for (var i = 0; i < patchList.length; i++) {
         var pidx2 = patchList[i] - 1;
-        C[pidx2] = decodeURIComponent(colorList[i]);
+        COLORS[pidx2] = decodeURIComponent(colorList[i]);
         A[pidx2] = PV;
       }
       draw();
@@ -1024,6 +1052,9 @@ JS = r"""
       if (banner) banner.remove();
       return;
     }
+
+    var claimed = (A[idx] || 0) >= PV;
+    if (claimed) return;
 
     for (var j = 0; j < pickedPatches.length; j++) {
       if (pickedPatches[j].idx === idx) return;
