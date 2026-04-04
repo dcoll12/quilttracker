@@ -406,6 +406,7 @@ JS = r"""
   var maxZoom = 8;
   var panX = 0, panY = 0;
   var isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+  var dragMoved = false;
   var hoverIdx = -1;
   var pickedPatches = [];
   var pickingMode = false;
@@ -479,6 +480,24 @@ JS = r"""
         }
       }
     }
+
+    if (window.__designPlacement && hoverIdx >= 0) {
+      var placement = buildDesignPlacement(hoverIdx);
+      if (placement) {
+        for (var i = 0; i < placement.patches.length; i++) {
+          var pidx = placement.patches[i] - 1;
+          var rr = Math.floor(pidx / GRID_COLS);
+          var cc = pidx % GRID_COLS;
+          var px = cc * step - panX + gapZ;
+          var py = rr * step - panY + gapZ;
+          ctx.fillStyle = placement.conflict ? 'rgba(249,65,68,0.45)' : 'rgba(67,170,139,0.45)';
+          ctx.fillRect(px, py, cellZ, cellZ);
+          ctx.strokeStyle = placement.conflict ? '#F94144' : '#43AA8B';
+          ctx.lineWidth = Math.max(1, zoom * 0.5);
+          ctx.strokeRect(px, py, cellZ, cellZ);
+        }
+      }
+    }
   }
 
   function hitTest(mx, my) {
@@ -488,6 +507,33 @@ JS = r"""
     if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return -1;
     var idx = row * GRID_COLS + col;
     return idx < TOTAL ? idx : -1;
+  }
+
+  function buildDesignPlacement(startIdx) {
+    if (!window.__designPlacement || startIdx < 0) return null;
+    var dp = window.__designPlacement;
+    var grid = dp.grid;
+    var startRow = Math.floor(startIdx / GRID_COLS);
+    var startCol = startIdx % GRID_COLS;
+    var patches = [];
+    var colors = [];
+    var conflict = false;
+
+    for (var r = 0; r < grid.length; r++) {
+      for (var c = 0; c < grid[r].length; c++) {
+        if (!grid[r][c]) continue;
+        var pr = startRow + r;
+        var pc = startCol + c;
+        if (pr >= GRID_ROWS || pc >= GRID_COLS) { conflict = true; break; }
+        var pidx = pr * GRID_COLS + pc;
+        if ((A[pidx] || 0) >= PV) { conflict = true; break; }
+        patches.push(pidx + 1);
+        colors.push(grid[r][c]);
+      }
+      if (conflict) break;
+    }
+
+    return { name: dp.name, conflict: conflict, patches: patches, colors: colors };
   }
 
   /* Find nearby unclaimed squares via BFS radiating from startIdx */
@@ -539,6 +585,9 @@ JS = r"""
   /* ---- Canvas mouse events ---- */
   canvas.addEventListener('mousemove', function(e) {
     if (isDragging) {
+      if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) {
+        dragMoved = true;
+      }
       panX = panStartX + (dragStartX - e.clientX);
       panY = panStartY + (dragStartY - e.clientY);
       clampPan();
@@ -574,6 +623,7 @@ JS = r"""
 
   canvas.addEventListener('mousedown', function(e) {
     isDragging = true;
+    dragMoved = false;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     panStartX = panX;
@@ -584,14 +634,14 @@ JS = r"""
 
   window.addEventListener('mouseup', function(e) {
     if (!isDragging) return;
-    var dx = Math.abs(e.clientX - dragStartX);
-    var dy = Math.abs(e.clientY - dragStartY);
     isDragging = false;
     canvas.style.cursor = 'crosshair';
-    if (dx < 4 && dy < 4) {
-      var rect = canvas.getBoundingClientRect();
-      handleGridClick(hitTest(e.clientX - rect.left, e.clientY - rect.top));
-    }
+  });
+
+  canvas.addEventListener('click', function(e) {
+    if (dragMoved) return;
+    var rect = canvas.getBoundingClientRect();
+    handleGridClick(hitTest(e.clientX - rect.left, e.clientY - rect.top));
   });
 
   canvas.addEventListener('wheel', function(e) {
@@ -957,44 +1007,27 @@ JS = r"""
   /* ------- Grid click (called from mouseup) ------- */
   function handleGridClick(idx) {
     if (idx < 0) return;
-    var claimed = (A[idx] || 0) >= PV;
-    if (claimed) return;
 
     /* Design placement mode */
     if (window.__designPlacement) {
-      var dp = window.__designPlacement;
-      var grid = dp.grid;
-      var designName = dp.name;
-      var startRow = Math.floor(idx / COLS);
-      var startCol = idx % COLS;
-      var patchList = [];
-      var colorList = [];
-      var conflict = false;
-
-      for (var r = 0; r < grid.length; r++) {
-        for (var c = 0; c < grid[r].length; c++) {
-          if (grid[r][c]) {
-            var pr = startRow + r;
-            var pc = startCol + c;
-            if (pr >= ROWS || pc >= COLS) { conflict = true; break; }
-            var pidx = pr * COLS + pc;
-            if ((A[pidx] || 0) >= PV) { conflict = true; break; }
-            patchList.push(pidx + 1);
-            colorList.push(encodeURIComponent(grid[r][c]));
-          }
-        }
-        if (conflict) break;
-      }
-
-      if (conflict) {
+      var placement = buildDesignPlacement(idx);
+      if (!placement) return;
+      if (placement.conflict) {
         alert('Design doesn\u2019t fit here \u2014 some patches overlap with claimed patches or the edge. Try another spot.');
         return;
+      }
+
+      var designName = placement.name;
+      var patchList = placement.patches;
+      var colorList = [];
+      for (var i = 0; i < placement.colors.length; i++) {
+        colorList.push(encodeURIComponent(placement.colors[i]));
       }
 
       /* Preview the design on canvas */
       for (var i = 0; i < patchList.length; i++) {
         var pidx2 = patchList[i] - 1;
-        C[pidx2] = decodeURIComponent(colorList[i]);
+        COLORS[pidx2] = decodeURIComponent(colorList[i]);
         A[pidx2] = PV;
       }
       draw();
@@ -1024,6 +1057,9 @@ JS = r"""
       if (banner) banner.remove();
       return;
     }
+
+    var claimed = (A[idx] || 0) >= PV;
+    if (claimed) return;
 
     for (var j = 0; j < pickedPatches.length; j++) {
       if (pickedPatches[j].idx === idx) return;
@@ -1409,6 +1445,7 @@ GALLERY_JS = r"""
   function openDesignDetail(d, tier) {
     var overlay = document.getElementById('design-detail-overlay');
     var cost = d.px * PV;
+    if (!overlay) return;
 
     document.getElementById('dd-name').textContent = d.name;
     document.getElementById('dd-price').textContent = '$' + cost.toLocaleString();
@@ -1434,7 +1471,7 @@ GALLERY_JS = r"""
     newCta.addEventListener('click', function(e) {
       e.preventDefault();
       window.__designPlacement = {name: d.name, grid: d.grid, cost: cost};
-      overlay.classList.remove('active');
+      closeDesignDetail();
       /* Show placement banner */
       var old = document.getElementById('design-place-banner');
       if (old) old.remove();
@@ -1454,17 +1491,22 @@ GALLERY_JS = r"""
       /* Scroll to quilt */
       var quiltCanvas = document.getElementById('quilt-canvas');
       if (quiltCanvas) quiltCanvas.scrollIntoView({behavior:'smooth', block:'start'});
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: document.body.scrollHeight }, '*');
+      }
     });
 
     overlay.classList.add('active');
   }
 
   /* ── Close detail ── */
-  document.getElementById('design-detail-close').addEventListener('click', function() {
-    document.getElementById('design-detail-overlay').classList.remove('active');
-  });
+  function closeDesignDetail() {
+    var overlay = document.getElementById('design-detail-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+  document.getElementById('design-detail-close').addEventListener('click', closeDesignDetail);
   document.getElementById('design-detail-overlay').addEventListener('click', function(e) {
-    if (e.target === this) this.classList.remove('active');
+    if (e.target === this) closeDesignDetail();
   });
 
   /* ── Populate grids ── */
