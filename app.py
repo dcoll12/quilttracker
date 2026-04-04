@@ -1141,49 +1141,45 @@ JS = r"""
       }
       draw();
 
-      /* Save to sheet */
-      var donorName = designDonorName;
+      /* Save to sheet then open Zeffy with donation amount preloaded */
+      var donorName = placement.donorName || "Anonymous";
       var totalAmt = patchList.length * PV;
+      var checkoutUrl = buildZeffyUrl({
+        design: encodeURIComponent(designName),
+        donor: encodeURIComponent(donorName),
+        patch: patchList.join(','),
+        squares: patchList.length,
+        colors: colorList.join(','),
+        donate: 'true',
+        amount: totalAmt,
+        donation_amount: totalAmt,
+        suggested_amount: totalAmt
+      });
+
+      var checkoutWindow = window.open('', '_blank');
+
       if (SCRIPT) {
         var payload = [];
         var txnId = buildTxnId('design');
         for (var i = 0; i < patchList.length; i++) {
           payload.push({patch: patchList[i], color: decodeURIComponent(colorList[i]), amount: PV, name: donorName, design: designName});
         }
-        var checkoutUrl = buildZeffyUrl({
-          design: encodeURIComponent(designName),
-          donor: encodeURIComponent(designDonorName),
-          patch: patchList.join(','),
-          squares: patchList.length,
-          colors: colorList.join(','),
-          donate: 'true',
-          amount: totalAmt,
-          donation_amount: totalAmt,
-          suggested_amount: totalAmt
-        });
         fetch(SCRIPT, {
           method: 'POST', mode: 'no-cors',
           headers: {'Content-Type': 'text/plain'},
           body: JSON.stringify({patches: payload, totalAmount: totalAmt, name: donorName, transaction_id: txnId, logged_at: new Date().toISOString()})
+        }).finally(function() {
+          if (checkoutWindow) {
+            checkoutWindow.location.href = checkoutUrl;
+          } else {
+            window.open(checkoutUrl, '_blank');
+          }
         });
+      } else if (checkoutWindow) {
+        checkoutWindow.location.href = checkoutUrl;
       } else {
-        var checkoutUrl = buildZeffyUrl({
-          design: encodeURIComponent(designName),
-          donor: encodeURIComponent(designDonorName),
-          patch: patchList.join(','),
-          squares: patchList.length,
-          colors: colorList.join(','),
-          donate: 'true',
-          amount: totalAmt,
-          donation_amount: totalAmt,
-          suggested_amount: totalAmt
-        });
         window.open(checkoutUrl, '_blank');
       }
-
-      /* Open Zeffy */
-      var url = buildZeffyUrl({design: encodeURIComponent(designName), donor: encodeURIComponent(designDonorName), patch: patchList.join(','), squares: patchList.length, colors: colorList.join(','), donate: 'true', amount: totalAmt});
-      window.open(url, '_blank');
 
       /* Clear placement mode */
       window.__designPlacement = null;
@@ -1606,7 +1602,13 @@ GALLERY_JS = r"""
     cta.parentNode.replaceChild(newCta, cta);
     newCta.addEventListener('click', function(e) {
       e.preventDefault();
-      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost};
+      var donorName = (donorNameInput && donorNameInput.value ? donorNameInput.value : '').trim();
+      if (!donorName) {
+        alert('Please enter your name before placing a design.');
+        if (donorNameInput) donorNameInput.focus();
+        return;
+      }
+      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost, donorName: donorName};
       closeDesignDetail();
       /* Show placement banner */
       var old = document.getElementById('design-place-banner');
