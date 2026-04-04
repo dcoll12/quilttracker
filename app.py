@@ -322,7 +322,7 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .design-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem}
 .design-card{background:#fff;border:1px solid rgba(67,170,139,.15);border-radius:8px;padding:.75rem;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;text-align:center}
 .design-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.1);border-color:""" + PRIMARY + """}
-.design-preview{display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;min-height:60px}
+.design-preview{display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;min-height:60px;background:#e8e4dd;border-radius:6px;padding:8px}
 .design-preview canvas{image-rendering:pixelated;border-radius:3px}
 .design-name{font-family:'Playfair Display',serif;font-size:.85rem;color:#1a3040;line-height:1.2;margin-bottom:.2rem}
 .design-meta{font-size:.65rem;color:#4a5c5a}
