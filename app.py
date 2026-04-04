@@ -228,17 +228,46 @@ grid_html = _build_grid_html(amounts, sheet_colors, default_colors)
 st.markdown(
     """
     <style>
-    #MainMenu, footer, header, [data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stToolbar"], .stDeployButton, [data-testid="stStatusWidget"] {display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important;}
-    .stApp, html, body, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {background: #faf8f3 !important; overflow: auto !important;}
-    .stApp > header {display: none !important; height: 0 !important;}
-    .stApp [data-testid="stHeader"] {display: none !important; height: 0 !important;}
-    .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; overflow: auto !important; margin-top: -3rem !important;}
-    [data-testid="stAppViewContainer"] > section > div {padding: 0 !important;}
-    section[data-testid="stSidebar"] {display: none;}
-    html, body {overflow: auto !important;}
+    /* Hide Streamlit-specific UI but keep layout space */
+    #MainMenu, footer, [data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stToolbar"] {
+        display: none !important;
+    }
+    
+    /* Ensure the app container doesn't have massive negative margins */
+    .block-container {
+        padding-top: 2rem !important; 
+        padding-bottom: 2rem !important;
+        max-width: 1200px !important;
+    }
+
+    /* Professional Banner Styling */
+    .hero-banner {
+        background: linear-gradient(135deg, #1a3040 0%, #2a4a60 100%);
+        padding: 3rem 2rem;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 2.5rem;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
     </style>
     """,
     unsafe_allow_html=True,
+)
+
+# Inject the Banner at the very top of the body
+st.markdown(
+    f"""
+    <div class="hero-banner">
+        <div class="eyebrow" style="color: {ACCENT};">Salem, Indiana • Placemaking Initiative</div>
+        <h1 class="title" style="color: white; margin: 0.5rem 0;">Community <em>Crossroads</em> Quilt</h1>
+        <p class="tagline" style="color: #cbd5e0; margin: 0 auto;">
+            Help us secure the downtown corner lot for our community yard. 
+            Every $20 patch helps reach our $750k goal.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 # -- CSS -----------------------------------------------------------------------
