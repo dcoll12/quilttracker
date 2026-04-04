@@ -4,6 +4,7 @@ import json
 import math
 import csv
 import io
+import random
 from datetime import datetime
 
 st.set_page_config(
@@ -225,6 +226,36 @@ raised_fmt = f"${total_raised:,}"
 raised_sub = "Be the first patch!" if total_raised == 0 else f"{claimed_patches} patches claimed"
 grid_html = _build_grid_html(amounts, sheet_colors, default_colors)
 
+# -- Streamlit live dashboard + quick navigation --------------------------------
+progress_delta = f"{pct_goal}% of goal"
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Raised", raised_fmt, delta=progress_delta)
+col2.metric("Claimed Patches", f"{claimed_patches:,}")
+col3.metric("Unclaimed Patches", f"{unclaimed:,}")
+col4.metric("Days Left", str(days_remaining))
+
+st.sidebar.header("Find Your Patch")
+search_name = st.sidebar.text_input("Donor name", placeholder="Type a name to find it")
+matching_indices = []
+if search_name.strip():
+    q = search_name.strip().lower()
+    matching_indices = [i for i, n in enumerate(sheet_names) if q in (n or "").lower()]
+    if matching_indices:
+        st.sidebar.success(f"Found {len(matching_indices)} match(es).")
+    else:
+        st.sidebar.warning("No matching names yet.")
+
+jump_to_match = st.sidebar.button("Jump to first match", disabled=not matching_indices)
+
+empty_indices = [i for i, amt in enumerate(amounts) if amt < PATCH_VALUE]
+jump_random_empty = st.sidebar.button("Jump to random empty square", disabled=not empty_indices)
+
+target_patch_idx = -1
+if jump_to_match and matching_indices:
+    target_patch_idx = matching_indices[0]
+elif jump_random_empty and empty_indices:
+    target_patch_idx = random.choice(empty_indices)
+
 st.markdown(
     """
     <style>
@@ -325,6 +356,7 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .modal .patch-num{color:""" + PRIMARY + """;font-size:.85rem;margin-bottom:1rem;display:block}
 .modal label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#4a5c5a;display:block;margin-bottom:.35rem;margin-top:1rem}
 .modal .amount-input{width:100%;padding:.65rem .8rem;border:1px solid rgba(67,170,139,.3);border-radius:5px;font-size:1.1rem;font-family:'DM Sans',sans-serif;background:#fff;outline:none}
+.modal .pattern-select{width:100%;padding:.65rem .8rem;border:1px solid rgba(67,170,139,.3);border-radius:5px;font-size:.95rem;font-family:'DM Sans',sans-serif;background:#fff;outline:none}
 .modal .amount-input:focus{border-color:""" + PRIMARY + """;box-shadow:0 0 0 3px rgba(67,170,139,.15)}
 .modal .sq-count{font-size:.85rem;color:""" + PRIMARY + """;font-weight:500;margin-top:.4rem}
 .color-row{display:flex;gap:.5rem;margin-bottom:.5rem;align-items:center;flex-wrap:wrap}
@@ -366,6 +398,8 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .design-detail .dd-preview{text-align:center;margin-bottom:1rem}
 .design-detail .dd-preview canvas{image-rendering:pixelated;border-radius:4px;border:1px solid rgba(0,0,0,.08)}
 .design-detail .dd-info{font-size:.8rem;color:#4a5c5a;line-height:1.6;margin-bottom:1.25rem}
+.design-detail .dd-name-label{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:#4a5c5a;margin:.3rem 0 .35rem;display:block}
+.design-detail .dd-name-input{width:100%;padding:.65rem .8rem;border:1px solid rgba(67,170,139,.3);border-radius:5px;font-size:.95rem;font-family:'DM Sans',sans-serif;background:#fff;outline:none;margin-bottom:1rem}
 .design-detail .dd-cta{display:block;width:100%;text-align:center;background:""" + PRIMARY + """;color:#faf8f3;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;padding:.9rem 1rem;border-radius:5px;border:none;cursor:pointer;transition:background .2s;text-decoration:none}
 .design-detail .dd-cta:hover{background:#3a9b7e}
 
@@ -389,6 +423,7 @@ JS = r"""
   var ZEFFY  = D.zeffyUrl;
   var SCRIPT = D.appsScriptUrl;
   var PCT    = D.pctGoal;
+  var TARGET_PATCH_IDX = D.targetPatchIdx;
   var TOTAL  = D.total;
   var GRID_COLS = D.cols;
   var GRID_ROWS = D.rows;
@@ -412,6 +447,19 @@ JS = r"""
   var pickingMode = false;
   var fullW = GRID_COLS * (CELL + GAP) + GAP;
   var fullH = GRID_ROWS * (CELL + GAP) + GAP;
+  function buildZeffyUrl(extraParams) {
+    var params = [];
+    for (var key in extraParams) {
+      if (Object.prototype.hasOwnProperty.call(extraParams, key) && extraParams[key] !== undefined && extraParams[key] !== null) {
+        params.push(key + '=' + extraParams[key]);
+      }
+    }
+    return ZEFFY + '?' + params.join('&');
+  }
+
+  function buildTxnId(prefix) {
+    return prefix + '-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+  }
 
   function sizeCanvas() {
     var containerW = canvas.parentElement.clientWidth;
@@ -431,6 +479,20 @@ JS = r"""
     var maxPanY = Math.max(0, fullH * zoom - canvas.height);
     panX = Math.max(0, Math.min(panX, maxPanX));
     panY = Math.max(0, Math.min(panY, maxPanY));
+  }
+
+  function centerOnPatch(idx) {
+    if (idx < 0 || idx >= TOTAL) return;
+    var row = Math.floor(idx / GRID_COLS);
+    var col = idx % GRID_COLS;
+    var step = (CELL * zoom) + (GAP * zoom);
+    var px = col * step + (CELL * zoom) / 2;
+    var py = row * step + (CELL * zoom) / 2;
+    panX = px - canvas.width / 2;
+    panY = py - canvas.height / 2;
+    clampPan();
+    hoverIdx = idx;
+    draw();
   }
 
   var EMPTY_BG = '#f0ebe0';
@@ -568,6 +630,43 @@ JS = r"""
     return result;
   }
 
+  function findRandomUnclaimed(count) {
+    var pool = [];
+    for (var i = 0; i < TOTAL; i++) {
+      if ((A[i] || 0) < PV) pool.push(i);
+    }
+    for (var j = pool.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var tmp = pool[j]; pool[j] = pool[k]; pool[k] = tmp;
+    }
+    return pool.slice(0, count);
+  }
+
+  function findHeartPattern(startIdx, count) {
+    var row = Math.floor(startIdx / GRID_COLS);
+    var col = startIdx % GRID_COLS;
+    var offsets = [[0,1],[0,2],[1,0],[1,3],[2,0],[2,3],[3,1],[3,2],[4,2],[5,2],[6,1],[6,2],[6,3]];
+    var found = [];
+    for (var i = 0; i < offsets.length && found.length < count; i++) {
+      var nr = row + offsets[i][0];
+      var nc = col + offsets[i][1];
+      if (nr < 0 || nr >= GRID_ROWS || nc < 0 || nc >= GRID_COLS) continue;
+      var ni = nr * GRID_COLS + nc;
+      if ((A[ni] || 0) < PV) found.push(ni);
+    }
+    if (found.length < count) {
+      var nearby = findNearbyUnclaimed(startIdx, count - found.length);
+      for (var j = 0; j < nearby.length; j++) found.push(nearby[j]);
+    }
+    return found.slice(0, count);
+  }
+
+  function findPatternSquares(startIdx, count, pattern) {
+    if (pattern === 'random') return findRandomUnclaimed(count);
+    if (pattern === 'heart') return findHeartPattern(startIdx, count);
+    return findNearbyUnclaimed(startIdx, count);
+  }
+
   /* Animate progress bar */
   var fill = document.getElementById('progress-fill');
   if (fill) setTimeout(function() { fill.style.width = PCT + '%'; }, 150);
@@ -691,6 +790,9 @@ JS = r"""
 
   sizeCanvas();
   updateZoomLabel();
+  if (typeof TARGET_PATCH_IDX === 'number' && TARGET_PATCH_IDX >= 0) {
+    centerOnPatch(TARGET_PATCH_IDX);
+  }
 
   /* ------- Modal ------- */
   var overlay = document.getElementById('modal-overlay');
@@ -703,6 +805,8 @@ JS = r"""
   var nextBtn = document.getElementById('modal-next-btn');
   var modalCloseBtn = document.getElementById('modal-close');
   var amountSection = document.getElementById('modal-amount-section');
+  var patternWrap = document.getElementById('modal-pattern-wrap');
+  var patternSelect = document.getElementById('modal-pattern');
   var pickedSummary = document.getElementById('modal-picked-summary');
   var autofillBtn = document.getElementById('modal-autofill-btn');
 
@@ -770,6 +874,7 @@ JS = r"""
       : 'At $' + val + ' you get ' + numSq + ' square' + (numSq > 1 ? 's' : '') + (numSq > 1 ? ' \\u2014 pick each one on the quilt' : '');
     totalSquares = numSq;
     donationAmount = val;
+    if (patternWrap) patternWrap.style.display = (numSq >= 5 || val >= 100) ? 'block' : 'none';
     updateButtons();
   }
 
@@ -821,7 +926,7 @@ JS = r"""
       nextBtn.style.display = 'block';
       nextBtn.textContent = 'Select Next Square (' + remaining + ' more) \\u2192';
       autofillBtn.style.display = 'block';
-      autofillBtn.textContent = 'Auto-fill ' + remaining + ' nearby square' + (remaining > 1 ? 's' : '') + ' with random colors';
+      autofillBtn.textContent = 'Auto-fill ' + remaining + ' remaining square' + (remaining > 1 ? 's' : '') + ' using selected pattern';
     } else {
       /* This is the last (or only) square */
       donateBtn.style.display = 'block';
@@ -897,7 +1002,8 @@ JS = r"""
     /* Find nearby unclaimed squares for the rest */
     var remaining = totalSquares - pickedPatches.length;
     if (remaining > 0) {
-      var nearby = findNearbyUnclaimed(currentIdx, remaining);
+      var pattern = patternSelect ? patternSelect.value : 'nearby';
+      var nearby = findPatternSquares(currentIdx, remaining, pattern);
       for (var i = 0; i < nearby.length; i++) {
         var randColor = PAL[Math.floor(Math.random() * PAL.length)];
         pickedPatches.push({idx: nearby[i], color: randColor});
@@ -918,6 +1024,7 @@ JS = r"""
       autofillBtn.disabled = true;
       autofillBtn.textContent = 'Saving...';
       var payload = [];
+      var txnId = buildTxnId('patch');
       for (var i = 0; i < pickedPatches.length; i++) {
         payload.push({patch: pickedPatches[i].idx + 1, color: pickedPatches[i].color, amount: donationAmount / pickedPatches.length});
       }
@@ -925,18 +1032,18 @@ JS = r"""
         method: 'POST',
         mode: 'no-cors',
         headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName})
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName, transaction_id: txnId, logged_at: new Date().toISOString()})
       }).then(function() {
-        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        var url = buildZeffyUrl({patch: patches.join(','), squares: pickedPatches.length, colors: colors.join(','), donate: 'true', amount: donationAmount});
         window.open(url, '_blank');
         closeModal();
       }).catch(function() {
-        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        var url = buildZeffyUrl({patch: patches.join(','), squares: pickedPatches.length, colors: colors.join(','), donate: 'true', amount: donationAmount});
         window.open(url, '_blank');
         closeModal();
       });
     } else {
-      var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+      var url = buildZeffyUrl({patch: patches.join(','), squares: pickedPatches.length, colors: colors.join(','), donate: 'true', amount: donationAmount});
       window.open(url, '_blank');
       closeModal();
     }
@@ -960,7 +1067,8 @@ JS = r"""
     /* Auto-fill any remaining squares not manually picked */
     var stillNeeded = totalSquares - pickedPatches.length;
     if (stillNeeded > 0) {
-      var nearby = findNearbyUnclaimed(currentIdx, stillNeeded);
+      var pattern = patternSelect ? patternSelect.value : 'nearby';
+      var nearby = findPatternSquares(currentIdx, stillNeeded, pattern);
       for (var k = 0; k < nearby.length; k++) {
         var randColor = PAL[Math.floor(Math.random() * PAL.length)];
         pickedPatches.push({idx: nearby[k], color: randColor});
@@ -979,6 +1087,7 @@ JS = r"""
       donateBtn.disabled = true;
       donateBtn.textContent = 'Saving...';
       var payload = [];
+      var txnId = buildTxnId('patch');
       for (var i = 0; i < pickedPatches.length; i++) {
         payload.push({patch: pickedPatches[i].idx + 1, color: pickedPatches[i].color, amount: donationAmount / pickedPatches.length});
       }
@@ -986,19 +1095,19 @@ JS = r"""
         method: 'POST',
         mode: 'no-cors',
         headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName})
+        body: JSON.stringify({patches: payload, totalAmount: donationAmount, name: donorName, transaction_id: txnId, logged_at: new Date().toISOString()})
       }).then(function() {
-        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        var url = buildZeffyUrl({patch: patches.join(','), squares: pickedPatches.length, colors: colors.join(','), donate: 'true', amount: donationAmount});
         window.open(url, '_blank');
         closeModal();
       }).catch(function() {
         /* Still open Zeffy even if sheet write fails */
-        var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+        var url = buildZeffyUrl({patch: patches.join(','), squares: pickedPatches.length, colors: colors.join(','), donate: 'true', amount: donationAmount});
         window.open(url, '_blank');
         closeModal();
       });
     } else {
-      var url = ZEFFY + '?patch=' + patches.join(',') + '&squares=' + pickedPatches.length + '&colors=' + colors.join(',') + '&donate=true';
+      var url = buildZeffyUrl({patch: patches.join(','), squares: pickedPatches.length, colors: colors.join(','), donate: 'true', amount: donationAmount});
       window.open(url, '_blank');
       closeModal();
     }
@@ -1033,22 +1142,23 @@ JS = r"""
       draw();
 
       /* Save to sheet */
-      var donorName = designName + ' Design';
+      var donorName = designDonorName;
       var totalAmt = patchList.length * PV;
       if (SCRIPT) {
         var payload = [];
+        var txnId = buildTxnId('design');
         for (var i = 0; i < patchList.length; i++) {
           payload.push({patch: patchList[i], color: decodeURIComponent(colorList[i]), amount: PV});
         }
         fetch(SCRIPT, {
           method: 'POST', mode: 'no-cors',
           headers: {'Content-Type': 'text/plain'},
-          body: JSON.stringify({patches: payload, totalAmount: totalAmt, name: donorName})
+          body: JSON.stringify({patches: payload, totalAmount: totalAmt, name: donorName, transaction_id: txnId, logged_at: new Date().toISOString()})
         });
       }
 
       /* Open Zeffy */
-      var url = ZEFFY + '?design=' + encodeURIComponent(designName) + '&patch=' + patchList.join(',') + '&squares=' + patchList.length + '&colors=' + colorList.join(',') + '&donate=true';
+      var url = buildZeffyUrl({design: encodeURIComponent(designName), donor: encodeURIComponent(designDonorName), patch: patchList.join(','), squares: patchList.length, colors: colorList.join(','), donate: 'true', amount: totalAmt});
       window.open(url, '_blank');
 
       /* Clear placement mode */
@@ -1460,6 +1570,8 @@ GALLERY_JS = r"""
     var info = document.getElementById('dd-info');
     info.innerHTML = 'This design uses <strong>' + d.px + ' patches</strong> on the quilt. ' +
       'Choose where to place it, then you\u2019ll be redirected to complete your $' + cost.toLocaleString() + ' donation.';
+    var donorNameInput = document.getElementById('dd-donor-name');
+    if (donorNameInput) donorNameInput.value = '';
 
     /* Single CTA: Place on Quilt */
     var cta = document.getElementById('dd-cta');
@@ -1532,7 +1644,8 @@ data_script = (
     + f'"rows":{ROWS},'
     + f'"zeffyUrl":"{ZEFFY_URL}",'
     + f'"appsScriptUrl":"{APPS_SCRIPT_URL}",'
-    + f'"pctGoal":{pct_goal}'
+    + f'"pctGoal":{pct_goal},'
+    + f'"targetPatchIdx":{target_patch_idx}'
     + "};</script>"
 )
 
@@ -1650,6 +1763,8 @@ HTML = f"""<!DOCTYPE html>
     <div class="dd-meta" id="dd-meta"></div>
     <div class="dd-preview" id="dd-preview"></div>
     <div class="dd-info" id="dd-info"></div>
+    <label class="dd-name-label" for="dd-donor-name">Your Name</label>
+    <input class="dd-name-input" id="dd-donor-name" type="text" placeholder="How your name should appear on the quilt">
     <a class="dd-cta" id="dd-cta" href="#">Place on Quilt &rarr;</a>
   </div>
 </div>
@@ -1668,6 +1783,15 @@ HTML = f"""<!DOCTYPE html>
       <label for="modal-amount">Donation Amount</label>
       <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" placeholder="$20 minimum">
       <div class="sq-count" id="modal-sq-count"></div>
+
+      <div id="modal-pattern-wrap" style="display:none">
+        <label for="modal-pattern">Auto-fill Pattern</label>
+        <select id="modal-pattern" class="pattern-select">
+          <option value="nearby">Fill Nearby (Square)</option>
+          <option value="heart">Heart Shape</option>
+          <option value="random">Random Spread</option>
+        </select>
+      </div>
     </div>
 
     <div id="modal-picked-summary"></div>
@@ -1678,6 +1802,7 @@ HTML = f"""<!DOCTYPE html>
     <button class="donate-submit" id="modal-autofill-btn" style="display:none">Auto-fill nearby squares with random colors</button>
     <button class="donate-submit" id="modal-next-btn" style="display:none">Select Next Square &rarr;</button>
     <button class="donate-submit" id="modal-donate-btn">Donate &amp; Claim &rarr;</button>
+    <p style="font-size:.72rem;color:#4a5c5a;margin-top:.8rem;line-height:1.45">Patch IDs and colors are logged to our quilt sheet automatically when you continue to Zeffy.</p>
   </div>
 </div>
 
