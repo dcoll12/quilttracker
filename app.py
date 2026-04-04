@@ -1169,6 +1169,8 @@ JS = r"""
         }).finally(function() {
           window.open(checkoutUrl, '_blank');
         });
+      } else if (checkoutWindow) {
+        checkoutWindow.location.href = checkoutUrl;
       } else {
         window.open(checkoutUrl, '_blank');
       }
@@ -1594,7 +1596,13 @@ GALLERY_JS = r"""
     cta.parentNode.replaceChild(newCta, cta);
     newCta.addEventListener('click', function(e) {
       e.preventDefault();
-      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost};
+      var donorName = (donorNameInput && donorNameInput.value ? donorNameInput.value : '').trim();
+      if (!donorName) {
+        alert('Please enter your name before placing a design.');
+        if (donorNameInput) donorNameInput.focus();
+        return;
+      }
+      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost, donorName: donorName};
       closeDesignDetail();
       /* Show placement banner */
       var old = document.getElementById('design-place-banner');
