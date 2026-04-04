@@ -406,6 +406,7 @@ JS = r"""
   var maxZoom = 8;
   var panX = 0, panY = 0;
   var isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+  var dragMoved = false;
   var hoverIdx = -1;
   var pickedPatches = [];
   var pickingMode = false;
@@ -584,6 +585,9 @@ JS = r"""
   /* ---- Canvas mouse events ---- */
   canvas.addEventListener('mousemove', function(e) {
     if (isDragging) {
+      if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) {
+        dragMoved = true;
+      }
       panX = panStartX + (dragStartX - e.clientX);
       panY = panStartY + (dragStartY - e.clientY);
       clampPan();
@@ -619,6 +623,7 @@ JS = r"""
 
   canvas.addEventListener('mousedown', function(e) {
     isDragging = true;
+    dragMoved = false;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     panStartX = panX;
@@ -629,14 +634,14 @@ JS = r"""
 
   window.addEventListener('mouseup', function(e) {
     if (!isDragging) return;
-    var dx = Math.abs(e.clientX - dragStartX);
-    var dy = Math.abs(e.clientY - dragStartY);
     isDragging = false;
     canvas.style.cursor = 'crosshair';
-    if (dx < 4 && dy < 4) {
-      var rect = canvas.getBoundingClientRect();
-      handleGridClick(hitTest(e.clientX - rect.left, e.clientY - rect.top));
-    }
+  });
+
+  canvas.addEventListener('click', function(e) {
+    if (dragMoved) return;
+    var rect = canvas.getBoundingClientRect();
+    handleGridClick(hitTest(e.clientX - rect.left, e.clientY - rect.top));
   });
 
   canvas.addEventListener('wheel', function(e) {
@@ -1440,6 +1445,7 @@ GALLERY_JS = r"""
   function openDesignDetail(d, tier) {
     var overlay = document.getElementById('design-detail-overlay');
     var cost = d.px * PV;
+    if (!overlay) return;
 
     document.getElementById('dd-name').textContent = d.name;
     document.getElementById('dd-price').textContent = '$' + cost.toLocaleString();
@@ -1465,7 +1471,7 @@ GALLERY_JS = r"""
     newCta.addEventListener('click', function(e) {
       e.preventDefault();
       window.__designPlacement = {name: d.name, grid: d.grid, cost: cost};
-      overlay.classList.remove('active');
+      closeDesignDetail();
       /* Show placement banner */
       var old = document.getElementById('design-place-banner');
       if (old) old.remove();
@@ -1485,17 +1491,22 @@ GALLERY_JS = r"""
       /* Scroll to quilt */
       var quiltCanvas = document.getElementById('quilt-canvas');
       if (quiltCanvas) quiltCanvas.scrollIntoView({behavior:'smooth', block:'start'});
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: document.body.scrollHeight }, '*');
+      }
     });
 
     overlay.classList.add('active');
   }
 
   /* ── Close detail ── */
-  document.getElementById('design-detail-close').addEventListener('click', function() {
-    document.getElementById('design-detail-overlay').classList.remove('active');
-  });
+  function closeDesignDetail() {
+    var overlay = document.getElementById('design-detail-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+  document.getElementById('design-detail-close').addEventListener('click', closeDesignDetail);
   document.getElementById('design-detail-overlay').addEventListener('click', function(e) {
-    if (e.target === this) this.classList.remove('active');
+    if (e.target === this) closeDesignDetail();
   });
 
   /* ── Populate grids ── */
