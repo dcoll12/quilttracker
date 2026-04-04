@@ -110,6 +110,29 @@ def _parse_csv(csv_text):
     if not rows:
         return {"amounts": amounts, "colors": colors, "names": names}
 
+    # ... existing setup ...
+    mapping = {
+        'patch': ['patch', 'square', '#', 'number'],
+        'amount': ['amount', 'donation', '$', 'amt'],
+        'color': ['color', 'hex', 'colour'],
+        'name': ['name', 'donor']
+    }
+    
+    # Identify indices based on the best match for each role
+    col_map = {}
+    for role, keywords in mapping.items():
+        for i, h in enumerate(header):
+            if any(k in h for k in keywords):
+                col_map[role] = i
+                break
+    
+    # Fallback to defaults if keywords aren't found
+    col_patch = col_map.get('patch', 0)
+    col_amount = col_map.get('amount', 1)
+    col_color = col_map.get('color', 2)
+    col_name = col_map.get('name', 3)
+    
+
     # --- detect column layout from header row ---
     # Map each role to a column index; default to legacy fixed positions
     col_patch = 0
@@ -461,18 +484,24 @@ JS = r"""
     return prefix + '-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
   }
 
-  function sizeCanvas() {
-    var containerW = canvas.parentElement.clientWidth;
-    var scale = containerW / fullW;
-    minZoom = scale;
-    if (zoom < minZoom) zoom = minZoom;
-    canvas.width = containerW;
-    var visH = Math.min(fullH * zoom, Math.max(400, fullH * minZoom));
-    canvas.height = visH;
+function sizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const containerW = canvas.parentElement.clientWidth;
+    
+    // Set logical size
+    canvas.width = containerW * dpr;
+    canvas.height = visH * dpr;
+    
+    // Set display size
+    canvas.style.width = containerW + 'px';
     canvas.style.height = visH + 'px';
+    
+    // Scale the context to ensure all drawing is crisp
+    ctx.scale(dpr, dpr);
+    
     clampPan();
     draw();
-  }
+}
 
   function clampPan() {
     var maxPanX = Math.max(0, fullW * zoom - canvas.width);
@@ -1669,6 +1698,8 @@ data_script = (
     + "};</script>"
 )
 
+
+
 HTML = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1789,40 +1820,65 @@ HTML = f"""<!DOCTYPE html>
   </div>
 </div>
 
-<!-- Modal -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
-    <button class="modal-close" id="modal-close">&times;</button>
-    <h2>Claim Your Patch</h2>
-    <span class="patch-num" id="modal-patch-num"></span>
+    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    
+    <div class="modal-header">
+      <h2>Claim Your Patch</h2>
+      <p class="patch-num" id="modal-patch-display">Patch #0</p>
+    </div>
 
-    <div id="modal-amount-section">
-      <label for="modal-name">Your Name</label>
-      <input type="text" class="amount-input" id="modal-name" placeholder="How you want to appear on the quilt">
+    <div class="modal-body">
+      <div class="input-group">
+        <label for="modal-name">Donor Name</label>
+        <input type="text" class="amount-input" id="modal-name" placeholder="How you want to appear on the quilt">
+      </div>
 
-      <label for="modal-amount">Donation Amount</label>
-      <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" placeholder="$20 minimum">
-      <div class="sq-count" id="modal-sq-count"></div>
+      <div class="input-group">
+        <label for="modal-amount">Donation Amount ($20 per patch)</label>
+        <div style="position: relative;">
+          <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #4a5c5a;">$</span>
+          <input type="number" class="amount-input" id="modal-amount" min="20" step="20" value="20" style="padding-left: 25px;">
+        </div>
+      </div>
 
-      <div id="modal-pattern-wrap" style="display:none">
-        <label for="modal-pattern">Auto-fill Pattern</label>
+      <div id="modal-multi-options" style="display:none; margin-top: 1rem; padding: 1rem; background: rgba(67, 170, 139, 0.05); border-radius: 8px;">
+        <label for="modal-pattern">Selection Pattern</label>
         <select id="modal-pattern" class="pattern-select">
           <option value="nearby">Fill Nearby (Square)</option>
           <option value="heart">Heart Shape</option>
           <option value="random">Random Spread</option>
         </select>
+        <div class="sq-count" id="modal-sq-count" style="margin-top: 0.5rem; font-weight: 600;">Selection: 1 Square</div>
+      </div>
+
+      <div class="input-group" style="margin-top: 1.5rem;">
+        <label>Patch Color Theme</label>
+        <div id="modal-color-area" class="color-row">
+          </div>
+      </div>
+
+      <div id="modal-conflict-warning" style="display:none; color: #F94144; font-size: 0.75rem; margin-top: 0.5rem; background: rgba(249,65,68,0.1); padding: 0.5rem; border-radius: 4px; border: 1px solid #F94144;">
+        ⚠️ Some selected squares are already claimed. Please adjust your amount or location.
       </div>
     </div>
 
-    <div id="modal-picked-summary"></div>
+    <div class="modal-footer" style="margin-top: 2rem; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 1.5rem;">
+      <div id="modal-checkout-summary" style="margin-bottom: 1rem; text-align: center;">
+          <span style="font-size: 0.8rem; color: #4a5c5a; text-transform: uppercase; letter-spacing: 0.05em;">Total Contribution</span>
+          <div id="modal-total-display" style="font-family: 'Playfair Display', serif; font-size: 2rem; color: #43AA8B;">$20.00</div>
+      </div>
 
-    <label>Choose Your Color</label>
-    <div id="modal-color-area"></div>
-
-    <button class="donate-submit" id="modal-autofill-btn" style="display:none">Auto-fill nearby squares with random colors</button>
-    <button class="donate-submit" id="modal-next-btn" style="display:none">Select Next Square &rarr;</button>
-    <button class="donate-submit" id="modal-donate-btn">Donate &amp; Claim &rarr;</button>
-    <p style="font-size:.72rem;color:#4a5c5a;margin-top:.8rem;line-height:1.45">Patch IDs and colors are logged to our quilt sheet automatically when you continue to Zeffy.</p>
+      <button class="donate-submit" id="modal-donate-btn">
+        Proceed to Secure Checkout &rarr;
+      </button>
+      
+      <p class="micro-disclaimer" style="font-size:.65rem; color:#4a5c5a; margin-top:1rem; text-align:center; line-height:1.4">
+        By clicking, you'll be redirected to <strong>Zeffy</strong> to complete your payment. 
+        Your patch coordinates and colors will be reserved automatically.
+      </p>
+    </div>
   </div>
 </div>
 
