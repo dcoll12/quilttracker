@@ -412,191 +412,184 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 }
 """
 
-# -- JS — canvas-based quilt with zoom/pan ----------------------------------------
+# -- REPLACING THE ENTIRE JS BLOCK --
 JS = r"""
 (function() {
-  var D      = window.__QD__;
-  var A      = D.amounts;
-  var NAMES  = D.names;
-  var COLORS = D.colors;
-  var PV     = D.patchValue;
-  var ZEFFY  = D.zeffyUrl;
-  var SCRIPT = D.appsScriptUrl;
-  var PCT    = D.pctGoal;
-  var TARGET_PATCH_IDX = D.targetPatchIdx;
-  var TOTAL  = D.total;
-  var GRID_COLS = D.cols;
-  var GRID_ROWS = D.rows;
+    var D      = window.__QD__;
+    var A      = D.amounts;
+    var NAMES  = D.names;
+    var COLORS = D.colors;
+    var PV     = D.patchValue;
+    var ZEFFY  = D.zeffyUrl;
+    var SCRIPT = D.appsScriptUrl;
+    var PCT    = D.pctGoal;
+    var TARGET_PATCH_IDX = D.targetPatchIdx;
+    var TOTAL  = D.total;
+    var GRID_COLS = D.cols;
+    var GRID_ROWS = D.rows;
 
-  var PAL = ['#F94144','#F3722C','#F8961E','#F9844A','#F9C74F','#90BE6D','#43AA8B','#4D908E','#577590','#277DA1'];
-  var HINTS  = ['claim me!', 'yours?', 'fill me!', 'be bold', "c'mon!"];
+    var PAL = ['#F94144','#F3722C','#F8961E','#F9844A','#F9C74F','#90BE6D','#43AA8B','#4D908E','#577590','#277DA1'];
+    var HINTS  = ['claim me!', 'yours?', 'fill me!', 'be bold', "c'mon!"];
 
-  /* ---- Canvas setup ---- */
-  var canvas = document.getElementById('quilt-canvas');
-  var ctx = canvas.getContext('2d');
-  var CELL = 6;
-  var GAP = 1;
-  var zoom = 1;
-  var minZoom = 1;
-  var maxZoom = 8;
-  var panX = 0, panY = 0;
-  var isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
-  var dragMoved = false;
-  var hoverIdx = -1;
-  var pickedPatches = [];
-  var pickingMode = false;
-  var fullW = GRID_COLS * (CELL + GAP) + GAP;
-  var fullH = GRID_ROWS * (CELL + GAP) + GAP;
-  function buildZeffyUrl(extraParams) {
-    var params = [];
-    for (var key in extraParams) {
-      if (Object.prototype.hasOwnProperty.call(extraParams, key) && extraParams[key] !== undefined && extraParams[key] !== null) {
-        params.push(key + '=' + extraParams[key]);
-      }
+    /* ---- Canvas setup ---- */
+    var canvas = document.getElementById('quilt-canvas');
+    var ctx = canvas.getContext('2d');
+    var CELL = 6;
+    var GAP = 1;
+    var zoom = 1;
+    var minZoom = 1;
+    var maxZoom = 8;
+    var panX = 0, panY = 0;
+    var isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+    var dragMoved = false;
+    var hoverIdx = -1;
+    var pickedPatches = [];
+    var pickingMode = false;
+    var fullW = GRID_COLS * (CELL + GAP) + GAP;
+    var fullH = GRID_ROWS * (CELL + GAP) + GAP;
+
+    function sizeCanvas() {
+        var containerW = canvas.parentElement.clientWidth;
+        var scale = containerW / fullW;
+        minZoom = scale;
+        if (zoom < minZoom) zoom = minZoom;
+        canvas.width = containerW;
+        var visH = Math.min(fullH * zoom, Math.max(400, fullH * minZoom));
+        canvas.height = visH;
+        canvas.style.height = visH + 'px';
+        clampPan();
+        draw();
     }
-    return ZEFFY + '?' + params.join('&');
-  }
 
-  function buildTxnId(prefix) {
-    return prefix + '-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
-  }
+    function clampPan() {
+        var maxPanX = Math.max(0, fullW * zoom - canvas.width);
+        var maxPanY = Math.max(0, fullH * zoom - canvas.height);
+        panX = Math.max(0, Math.min(panX, maxPanX));
+        panY = Math.max(0, Math.min(panY, maxPanY));
+    }
 
-  function sizeCanvas() {
-    var containerW = canvas.parentElement.clientWidth;
-    var scale = containerW / fullW;
-    minZoom = scale;
-    if (zoom < minZoom) zoom = minZoom;
-    canvas.width = containerW;
-    var visH = Math.min(fullH * zoom, Math.max(400, fullH * minZoom));
-    canvas.height = visH;
-    canvas.style.height = visH + 'px';
-    clampPan();
-    draw();
-  }
+    function centerOnPatch(idx) {
+        if (idx < 0 || idx >= TOTAL) return;
+        var row = Math.floor(idx / GRID_COLS);
+        var col = idx % GRID_COLS;
+        var step = (CELL * zoom) + (GAP * zoom);
+        var px = col * step + (CELL * zoom) / 2;
+        var py = row * step + (CELL * zoom) / 2;
+        panX = px - canvas.width / 2;
+        panY = py - canvas.height / 2;
+        clampPan();
+        hoverIdx = idx;
+        draw();
+    }
 
-  function clampPan() {
-    var maxPanX = Math.max(0, fullW * zoom - canvas.width);
-    var maxPanY = Math.max(0, fullH * zoom - canvas.height);
-    panX = Math.max(0, Math.min(panX, maxPanX));
-    panY = Math.max(0, Math.min(panY, maxPanY));
-  }
+    var EMPTY_BG = '#f0ebe0';
 
-  function centerOnPatch(idx) {
-    if (idx < 0 || idx >= TOTAL) return;
-    var row = Math.floor(idx / GRID_COLS);
-    var col = idx % GRID_COLS;
-    var step = (CELL * zoom) + (GAP * zoom);
-    var px = col * step + (CELL * zoom) / 2;
-    var py = row * step + (CELL * zoom) / 2;
-    panX = px - canvas.width / 2;
-    panY = py - canvas.height / 2;
-    clampPan();
-    hoverIdx = idx;
-    draw();
-  }
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#1a3040';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        var cellZ = CELL * zoom;
+        var gapZ = GAP * zoom;
+        var step = cellZ + gapZ;
+        
+        var startCol = Math.max(0, Math.floor(panX / step));
+        var startRow = Math.max(0, Math.floor(panY / step));
+        var endCol = Math.min(GRID_COLS, Math.ceil((panX + canvas.width) / step));
+        var endRow = Math.min(GRID_ROWS, Math.ceil((panY + canvas.height) / step));
 
-  var EMPTY_BG = '#f0ebe0';
+        for (var r = startRow; r < endRow; r++) {
+            for (var c = startCol; c < endCol; c++) {
+                var idx = r * GRID_COLS + c;
+                if (idx >= TOTAL) continue;
+                var x = c * step - panX + gapZ;
+                var y = r * step - panY + gapZ;
+                var amt = A[idx] || 0;
+                var claimed = amt >= PV;
+                
+                if (claimed) {
+                    ctx.fillStyle = COLORS[idx] || '#43AA8B';
+                } else {
+                    ctx.fillStyle = EMPTY_BG;
+                }
+                
+                ctx.fillRect(x, y, cellZ, cellZ);
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#1a3040';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    var cellZ = CELL * zoom;
-    var gapZ = GAP * zoom;
-    var step = cellZ + gapZ;
-    var startCol = Math.max(0, Math.floor(panX / step));
-    var startRow = Math.max(0, Math.floor(panY / step));
-    var endCol = Math.min(GRID_COLS, Math.ceil((panX + canvas.width) / step));
-    var endRow = Math.min(GRID_ROWS, Math.ceil((panY + canvas.height) / step));
-
-    for (var r = startRow; r < endRow; r++) {
-      for (var c = startCol; c < endCol; c++) {
-        var idx = r * GRID_COLS + c;
-        if (idx >= TOTAL) continue;
-        var x = c * step - panX + gapZ;
-        var y = r * step - panY + gapZ;
-        var amt = A[idx] || 0;
-        var claimed = amt >= PV;
-        var sessionColor = null;
-        for (var p = 0; p < pickedPatches.length; p++) {
-          if (pickedPatches[p].idx === idx) { sessionColor = pickedPatches[p].color; break; }
+                if (idx === hoverIdx) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fillRect(x, y, cellZ, cellZ);
+                }
+            }
         }
-        if (sessionColor) {
-          ctx.fillStyle = sessionColor;
-        } else if (claimed) {
-          ctx.fillStyle = COLORS[idx] || '#43AA8B';
+    }
+
+    function hitTest(mx, my) {
+        var step = (CELL * zoom) + (GAP * zoom);
+        var col = Math.floor((mx + panX) / step);
+        var row = Math.floor((my + panY) / step);
+        if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return -1;
+        var idx = row * GRID_COLS + col;
+        return idx < TOTAL ? idx : -1;
+    }
+
+    /* ---- Event Listeners ---- */
+    var tip = document.getElementById('tip');
+
+    canvas.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        dragMoved = false;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        panStartX = panX;
+        panStartY = panY;
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+            if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) {
+                dragMoved = true;
+            }
+            panX = panStartX + (dragStartX - e.clientX);
+            panY = panStartY + (dragStartY - e.clientY);
+            clampPan();
+            draw();
+            tip.style.opacity = 0;
+            return;
+        }
+
+        var rect = canvas.getBoundingClientRect();
+        var mx = e.clientX - rect.left;
+        var my = e.clientY - rect.top;
+        var idx = hitTest(mx, my);
+        hoverIdx = idx;
+        draw();
+
+        if (idx < 0) {
+            tip.style.opacity = 0;
         } else {
-          ctx.fillStyle = EMPTY_BG;
+            var amt = A[idx] || 0;
+            var name = NAMES[idx] || 'Available';
+            tip.textContent = 'Patch #' + (idx + 1) + ': ' + name;
+            tip.style.opacity = 1;
+            tip.style.left = (e.clientX + 15) + 'px';
+            tip.style.top = (e.clientY + 15) + 'px';
         }
-        ctx.fillRect(x, y, cellZ, cellZ);
-        if (idx === hoverIdx) {
-          ctx.fillStyle = 'rgba(255,255,255,0.35)';
-          ctx.fillRect(x, y, cellZ, cellZ);
-          ctx.strokeStyle = '#1a3040';
-          ctx.lineWidth = Math.max(1, zoom * 0.5);
-          ctx.strokeRect(x, y, cellZ, cellZ);
+    });
+
+    window.addEventListener('mouseup', function(e) {
+        if (isDragging && !dragMoved && hoverIdx >= 0) {
+            // If it wasn't a drag, it's a click: Open Zeffy link
+            window.open(ZEFFY, '_blank');
         }
-        if (pickingMode && (claimed || sessionColor)) {
-          ctx.fillStyle = 'rgba(250,248,243,0.6)';
-          ctx.fillRect(x, y, cellZ, cellZ);
-        }
-      }
-    }
+        isDragging = false;
+    });
 
-    if (window.__designPlacement && hoverIdx >= 0) {
-      var placement = buildDesignPlacement(hoverIdx);
-      if (placement) {
-        for (var i = 0; i < placement.patches.length; i++) {
-          var pidx = placement.patches[i] - 1;
-          var rr = Math.floor(pidx / GRID_COLS);
-          var cc = pidx % GRID_COLS;
-          var px = cc * step - panX + gapZ;
-          var py = rr * step - panY + gapZ;
-          ctx.fillStyle = placement.conflict ? 'rgba(249,65,68,0.45)' : 'rgba(67,170,139,0.45)';
-          ctx.fillRect(px, py, cellZ, cellZ);
-          ctx.strokeStyle = placement.conflict ? '#F94144' : '#43AA8B';
-          ctx.lineWidth = Math.max(1, zoom * 0.5);
-          ctx.strokeRect(px, py, cellZ, cellZ);
-        }
-      }
-    }
-  }
+    /* ---- Initialize ---- */
+    window.addEventListener('resize', sizeCanvas);
+    sizeCanvas();
+    if (TARGET_PATCH_IDX >= 0) centerOnPatch(TARGET_PATCH_IDX);
 
-  function hitTest(mx, my) {
-    var step = (CELL * zoom) + (GAP * zoom);
-    var col = Math.floor((mx + panX) / step);
-    var row = Math.floor((my + panY) / step);
-    if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return -1;
-    var idx = row * GRID_COLS + col;
-    return idx < TOTAL ? idx : -1;
-  }
-
-  function buildDesignPlacement(startIdx) {
-    if (!window.__designPlacement || startIdx < 0) return null;
-    var dp = window.__designPlacement;
-    var grid = dp.grid;
-    var startRow = Math.floor(startIdx / GRID_COLS);
-    var startCol = startIdx % GRID_COLS;
-    var patches = [];
-    var colors = [];
-    var conflict = false;
-
-    for (var r = 0; r < grid.length; r++) {
-      for (var c = 0; c < grid[r].length; c++) {
-        if (!grid[r][c]) continue;
-        var pr = startRow + r;
-        var pc = startCol + c;
-        if (pr >= GRID_ROWS || pc >= GRID_COLS) { conflict = true; break; }
-        var pidx = pr * GRID_COLS + pc;
-        if ((A[pidx] || 0) >= PV) { conflict = true; break; }
-        patches.push(pidx + 1);
-        colors.push(grid[r][c]);
-      }
-      if (conflict) break;
-    }
-
-    return { name: dp.name, conflict: conflict, patches: patches, colors: colors };
-  }
+})();
+"""
 
   /* Find nearby unclaimed squares via BFS radiating from startIdx */
   function findNearbyUnclaimed(startIdx, count) {
