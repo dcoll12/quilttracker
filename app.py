@@ -288,7 +288,7 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 @keyframes float-up{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-70px) scale(1.5);opacity:0}}
 
 /* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay{position:absolute;left:0;right:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-overlay.active{opacity:1;pointer-events:auto}
 .modal{background:#faf8f3;border-radius:10px;padding:2rem;max-width:480px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;font-family:'DM Sans',sans-serif}
 .modal-close{position:absolute;top:.75rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#4a5c5a;line-height:1}
@@ -327,7 +327,7 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .design-name{font-family:'Playfair Display',serif;font-size:.85rem;color:#1a3040;line-height:1.2;margin-bottom:.2rem}
 .design-meta{font-size:.65rem;color:#4a5c5a}
 .design-price{font-family:'Playfair Display',serif;font-size:.95rem;color:""" + PRIMARY + """;font-weight:700;margin-top:.2rem}
-.design-detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.design-detail-overlay{position:absolute;left:0;right:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .design-detail-overlay.active{opacity:1;pointer-events:auto}
 .design-detail{background:#faf8f3;border-radius:10px;padding:2rem;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;font-family:'DM Sans',sans-serif}
 .design-detail-close{position:absolute;top:.75rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#4a5c5a;line-height:1}
@@ -662,6 +662,11 @@ JS = r"""
     updateButtons();
     renderPickedSummary();
     hidePickBanner();
+    /* Position overlay at current scroll */
+    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var viewH = window.innerHeight || document.documentElement.clientHeight;
+    overlay.style.top = scrollY + 'px';
+    overlay.style.height = viewH + 'px';
     overlay.classList.add('active');
     setTimeout(notifyHeight, 50);
   }
@@ -992,7 +997,10 @@ JS = r"""
       /* Clear placement mode */
       window.__designPlacement = null;
       var banner = document.getElementById('design-place-banner');
-      if (banner) banner.remove();
+      if (banner) {
+        if (banner._scrollHandler) window.removeEventListener('scroll', banner._scrollHandler);
+        banner.remove();
+      }
       return;
     }
 
@@ -1022,7 +1030,6 @@ GALLERY_JS = r"""
   var designs = {
     mini: [
       {name:"Music Note",   px:9,  grid:[[T,T,"#577590"],[T,T,"#577590"],[T,T,"#577590"],[T,T,"#577590"],["#577590","#577590","#577590"],["#577590","#577590",T]]},
-      {name:"Diamond",      px:9,  grid:[[T,T,"#277DA1",T,T],[T,"#277DA1","#277DA1","#277DA1",T],["#277DA1","#277DA1","#277DA1","#277DA1","#277DA1"]]},
       {name:"Cherry",       px:9,  grid:[[T,T,T,T,"#90BE6D"],[T,T,T,"#90BE6D",T],[T,T,"#90BE6D",T,T],["#F94144",T,T,"#F94144",T],["#F94144","#F94144",T,"#F94144","#F94144"]]},
       {name:"Lightning",    px:10, grid:[[T,T,"#F9C74F"],[T,"#F9C74F","#F9C74F"],[T,"#F9C74F",T],["#F9C74F","#F9C74F","#F9C74F"],["#F9C74F","#F9C74F",T],["#F9C74F",T,T]]},
       {name:"Moon",          px:10, grid:[[T,"#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F",T,T],["#F9C74F",T,T,T],["#F9C74F",T,T,T],["#F9C74F","#F9C74F",T,T],[T,"#F9C74F","#F9C74F",T]]},
@@ -1381,6 +1388,11 @@ GALLERY_JS = r"""
   function openDesignDetail(d, tier) {
     var overlay = document.getElementById('design-detail-overlay');
     var cost = d.px * PV;
+    /* Position overlay at current scroll so it's visible */
+    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var viewH = window.innerHeight || document.documentElement.clientHeight;
+    overlay.style.top = scrollY + 'px';
+    overlay.style.height = viewH + 'px';
 
     document.getElementById('dd-name').textContent = d.name;
     document.getElementById('dd-price').textContent = '$' + cost.toLocaleString();
@@ -1414,12 +1426,19 @@ GALLERY_JS = r"""
       var banner = document.createElement('div');
       banner.id = 'design-place-banner';
       banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10002;background:#277DA1;color:#fff;text-align:center;padding:12px 20px;font-family:DM Sans,sans-serif;font-size:.9rem;font-weight:500;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+      /* Reposition banner on scroll since fixed doesn't work in tall iframe */
+      function repositionBanner() { banner.style.top = (window.pageYOffset || 0) + 'px'; }
+      banner.style.position = 'absolute';
+      window.addEventListener('scroll', repositionBanner);
+      banner._scrollHandler = repositionBanner;
+      repositionBanner();
       banner.innerHTML = 'Click on the quilt to place your <strong>' + d.name + '</strong> (' + d.px + ' patches \u00b7 $' + cost.toLocaleString() + ')';
       var cancelBtn = document.createElement('button');
       cancelBtn.textContent = 'Cancel';
       cancelBtn.style.cssText = 'background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);padding:4px 14px;border-radius:4px;cursor:pointer;font-size:.8rem';
       cancelBtn.addEventListener('click', function() {
         window.__designPlacement = null;
+        if (banner._scrollHandler) window.removeEventListener('scroll', banner._scrollHandler);
         banner.remove();
       });
       banner.appendChild(cancelBtn);
