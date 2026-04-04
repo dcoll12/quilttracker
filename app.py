@@ -712,6 +712,10 @@ function sizeCanvas() {
 
   /* ---- Canvas mouse events ---- */
   canvas.addEventListener('mousemove', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+
     if (isDragging) {
       if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) {
         dragMoved = true;
@@ -723,31 +727,40 @@ function sizeCanvas() {
       tip.style.opacity = 0;
       return;
     }
-    var rect = canvas.getBoundingClientRect();
-    var mx = e.clientX - rect.left;
-    var my = e.clientY - rect.top;
+
     var idx = hitTest(mx, my);
     hoverIdx = idx;
     draw();
-    if (idx < 0) { tip.style.opacity = 0; return; }
+
+    if (idx < 0) {
+      tip.style.opacity = 0;
+      return;
+    }
+
     var amt = A[idx] || 0;
     var claimed = amt >= PV;
     var msg;
+
     if (!claimed && amt <= 0) {
-      msg = 'Patch #' + (idx+1) + ' \u2013 ' + HINTS[idx % HINTS.length];
+      msg = 'Patch #' + (idx + 1) + ' – ' + HINTS[idx % HINTS.length];
     } else if (claimed) {
       var name = NAMES[idx] || 'Anonymous';
-      msg = 'Patch #' + (idx+1) + ' \u2013 ' + name + ' \u2013 $' + amt.toLocaleString();
+      msg = 'Patch #' + (idx + 1) + ' – ' + name + ' – $' + amt.toLocaleString();
     } else {
-      msg = 'Patch #' + (idx+1) + ' \u2013 $' + amt.toLocaleString();
+      msg = 'Patch #' + (idx + 1) + ' – $' + amt.toLocaleString();
     }
+
     tip.textContent = msg;
     tip.style.opacity = 1;
     tip.style.left = (e.clientX + 14) + 'px';
-    tip.style.top  = (e.clientY - 36) + 'px';
+    tip.style.top = (e.clientY - 36) + 'px';
   });
 
-  canvas.addEventListener('mouseleave', function() { tip.style.opacity = 0; hoverIdx = -1; draw(); });
+  canvas.addEventListener('mouseleave', function() {
+    tip.style.opacity = 0;
+    hoverIdx = -1;
+    draw();
+  });
 
   canvas.addEventListener('mousedown', function(e) {
     isDragging = true;
@@ -766,10 +779,51 @@ function sizeCanvas() {
     canvas.style.cursor = 'crosshair';
   });
 
+  // Entry point for claiming a patch
   canvas.addEventListener('click', function(e) {
     if (dragMoved) return;
     var rect = canvas.getBoundingClientRect();
-    handleGridClick(hitTest(e.clientX - rect.left, e.clientY - rect.top));
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var idx = hitTest(mx, my);
+
+    if (idx >= 0) {
+      handleGridClick(idx);
+    }
+  });
+
+  function handleGridClick(idx) {
+    if (A[idx] >= PV) return; // Square already claimed
+
+    const modal = document.getElementById('modal-overlay');
+    const patchDisplay = document.getElementById('modal-patch-num');
+    
+    // Save state for the Zeffy button
+    window._activePatchIdx = idx;
+
+    if (patchDisplay) patchDisplay.innerText = "Patch #" + (idx + 1);
+    modal.classList.add('active');
+  }
+
+  // THE ZEFFY BRIDGE: This must be registered once
+  document.getElementById('modal-donate-btn').addEventListener('click', function() {
+    const idx = window._activePatchIdx;
+    const donorName = document.getElementById('modal-name').value || "Friend of Crossroads";
+    const donorAmount = document.getElementById('modal-amount').value || 20;
+
+    if (idx === undefined || idx < 0) return;
+
+    // Construct Zeffy URL - using 'note' to pass patch ID to your sheet
+    const finalZeffyUrl = ZEFFY + 
+      "?amount=" + donorAmount + 
+      "&first_name=" + encodeURIComponent(donorName) + 
+      "&note=" + encodeURIComponent("PatchID:" + (idx + 1));
+
+    // Open immediately in new tab to bypass most popup blockers
+    window.open(finalZeffyUrl, '_blank');
+    
+    // Reset and close
+    document.getElementById('modal-overlay').classList.remove('active');
   });
 
   canvas.addEventListener('wheel', function(e) {
@@ -786,7 +840,7 @@ function sizeCanvas() {
     clampPan();
     draw();
     updateZoomLabel();
-  }, {passive: false});
+  }, { passive: false });
 
   /* Zoom controls */
   var zoomInBtn = document.getElementById('zoom-in');
@@ -799,29 +853,51 @@ function sizeCanvas() {
   }
 
   if (zoomInBtn) zoomInBtn.addEventListener('click', function() {
-    var cx = canvas.width / 2, cy = canvas.height / 2;
-    var wx = (cx + panX) / zoom, wy = (cy + panY) / zoom;
+    var cx = canvas.width / 2,
+      cy = canvas.height / 2;
+    var wx = (cx + panX) / zoom,
+      wy = (cy + panY) / zoom;
     zoom = Math.min(maxZoom, zoom * 1.4);
-    panX = wx * zoom - cx; panY = wy * zoom - cy;
-    clampPan(); draw(); updateZoomLabel();
+    panX = wx * zoom - cx;
+    panY = wy * zoom - cy;
+    clampPan();
+    draw();
+    updateZoomLabel();
   });
+  
   if (zoomOutBtn) zoomOutBtn.addEventListener('click', function() {
-    var cx = canvas.width / 2, cy = canvas.height / 2;
-    var wx = (cx + panX) / zoom, wy = (cy + panY) / zoom;
+    var cx = canvas.width / 2,
+      cy = canvas.height / 2;
+    var wx = (cx + panX) / zoom,
+      wy = (cy + panY) / zoom;
     zoom = Math.max(minZoom, zoom * 0.7);
-    panX = wx * zoom - cx; panY = wy * zoom - cy;
-    clampPan(); draw(); updateZoomLabel();
+    panX = wx * zoom - cx;
+    panY = wy * zoom - cy;
+    clampPan();
+    draw();
+    updateZoomLabel();
   });
+  
   if (zoomResetBtn) zoomResetBtn.addEventListener('click', function() {
-    zoom = minZoom; panX = 0; panY = 0;
-    clampPan(); draw(); updateZoomLabel();
+    zoom = minZoom;
+    panX = 0;
+    panY = 0;
+    clampPan();
+    draw();
+    updateZoomLabel();
+  });
+
+  document.getElementById('modal-close').addEventListener('click', function() {
+    document.getElementById('modal-overlay').classList.remove('active');
   });
 
   sizeCanvas();
   updateZoomLabel();
+  
   if (typeof TARGET_PATCH_IDX === 'number' && TARGET_PATCH_IDX >= 0) {
     centerOnPatch(TARGET_PATCH_IDX);
   }
+})();
 
   /* ------- Modal ------- */
   var overlay = document.getElementById('modal-overlay');
