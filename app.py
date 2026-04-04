@@ -1127,9 +1127,6 @@ JS = r"""
       }
 
       var designName = placement.name;
-      var designDonorName = window.__designPlacement && window.__designPlacement.donorName
-        ? window.__designPlacement.donorName
-        : (designName + ' Design');
       var patchList = placement.patches;
       var colorList = [];
       for (var i = 0; i < placement.colors.length; i++) {
@@ -1585,13 +1582,7 @@ GALLERY_JS = r"""
     cta.parentNode.replaceChild(newCta, cta);
     newCta.addEventListener('click', function(e) {
       e.preventDefault();
-      var donorName = donorNameInput ? donorNameInput.value.trim() : '';
-      if (!donorName) {
-        alert('Please enter your name before placing this design.');
-        if (donorNameInput) donorNameInput.focus();
-        return;
-      }
-      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost, donorName: donorName};
+      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost};
       closeDesignDetail();
       /* Show placement banner */
       var old = document.getElementById('design-place-banner');
