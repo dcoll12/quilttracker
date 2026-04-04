@@ -930,6 +930,72 @@ JS = r"""
     if (idx < 0) return;
     var claimed = (A[idx] || 0) >= PV;
     if (claimed) return;
+
+    /* Design placement mode */
+    if (window.__designPlacement) {
+      var dp = window.__designPlacement;
+      var grid = dp.grid;
+      var designName = dp.name;
+      var startRow = Math.floor(idx / COLS);
+      var startCol = idx % COLS;
+      var patchList = [];
+      var colorList = [];
+      var conflict = false;
+
+      for (var r = 0; r < grid.length; r++) {
+        for (var c = 0; c < grid[r].length; c++) {
+          if (grid[r][c]) {
+            var pr = startRow + r;
+            var pc = startCol + c;
+            if (pr >= ROWS || pc >= COLS) { conflict = true; break; }
+            var pidx = pr * COLS + pc;
+            if ((A[pidx] || 0) >= PV) { conflict = true; break; }
+            patchList.push(pidx + 1);
+            colorList.push(encodeURIComponent(grid[r][c]));
+          }
+        }
+        if (conflict) break;
+      }
+
+      if (conflict) {
+        alert('Design doesn\u2019t fit here \u2014 some patches overlap with claimed patches or the edge. Try another spot.');
+        return;
+      }
+
+      /* Preview the design on canvas */
+      for (var i = 0; i < patchList.length; i++) {
+        var pidx2 = patchList[i] - 1;
+        C[pidx2] = decodeURIComponent(colorList[i]);
+        A[pidx2] = PV;
+      }
+      draw();
+
+      /* Save to sheet */
+      var donorName = designName + ' Design';
+      var totalAmt = patchList.length * PV;
+      if (SCRIPT) {
+        var payload = [];
+        for (var i = 0; i < patchList.length; i++) {
+          payload.push({patch: patchList[i], color: decodeURIComponent(colorList[i]), amount: PV});
+        }
+        fetch(SCRIPT, {
+          method: 'POST', mode: 'no-cors',
+          headers: {'Content-Type': 'text/plain'},
+          body: JSON.stringify({patches: payload, totalAmount: totalAmt, name: donorName})
+        });
+      }
+
+      /* Open Zeffy */
+      var url = ZEFFY + '?design=' + encodeURIComponent(designName) + '&patch=' + patchList.join(',') + '&squares=' + patchList.length + '&colors=' + colorList.join(',') + '&donate=true';
+      window.open(url, '_blank');
+
+      /* Clear placement mode */
+      window.__designPlacement = null;
+      var banner = document.getElementById('design-place-banner');
+      if (banner) banner.remove();
+      return;
+    }
+
     for (var j = 0; j < pickedPatches.length; j++) {
       if (pickedPatches[j].idx === idx) return;
     }
@@ -973,7 +1039,7 @@ GALLERY_JS = r"""
       {name:"Sun",           px:17, grid:[[T,"#F9C74F",T,"#F9C74F",T],["#F9C74F","#F8961E","#F8961E","#F8961E","#F9C74F"],[T,"#F8961E","#F9C74F","#F8961E",T],["#F9C74F","#F8961E","#F8961E","#F8961E","#F9C74F"],[T,"#F9C74F",T,"#F9C74F",T]]},
       {name:"Mini Heart",    px:21, grid:[[T,"#F94144",T,T,"#F94144",T],["#F94144","#F94144","#F94144","#F94144","#F94144","#F94144"],["#F94144","#F94144","#F94144","#F94144","#F94144","#F94144"],[T,"#F94144","#F94144","#F94144","#F94144",T],[T,T,"#F94144","#F94144",T,T],[T,T,T,"#F94144",T,T]]},
       {name:"Crown",         px:22, grid:[[T,"#F9C74F",T,"#F9C74F",T,"#F9C74F",T],[T,"#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F","#F8961E","#F9C74F","#F8961E","#F9C74F","#F9C74F"],["#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F"]]},
-      {name:"Peace Sign",    px:23, grid:[[T,T,"#43AA8B","#43AA8B","#43AA8B",T,T],[T,"#43AA8B",T,"#43AA8B",T,"#43AA8B",T],["#43AA8B",T,T,"#43AA8B",T,T,"#43AA8B"],["#43AA8B",T,"#43AA8B","#43AA8B","#43AA8B",T,"#43AA8B"],["#43AA8B",T,T,"#43AA8B",T,T,"#43AA8B"],[T,"#43AA8B",T,"#43AA8B",T,"#43AA8B",T],[T,T,"#43AA8B","#43AA8B","#43AA8B",T,T]]},
+      {name:"Peace Sign",    px:25, grid:[[T,T,"#43AA8B","#43AA8B","#43AA8B",T,T],[T,"#43AA8B",T,"#43AA8B",T,"#43AA8B",T],["#43AA8B",T,T,"#43AA8B",T,T,"#43AA8B"],["#43AA8B",T,"#43AA8B","#43AA8B","#43AA8B",T,"#43AA8B"],["#43AA8B",T,"#43AA8B","#43AA8B","#43AA8B",T,"#43AA8B"],[T,"#43AA8B",T,"#43AA8B",T,"#43AA8B",T],[T,T,"#43AA8B","#43AA8B","#43AA8B",T,T]]},
       {name:"Smiley",        px:32, grid:[[T,"#F9C74F","#F9C74F","#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F"],["#F9C74F","#333333","#F9C74F","#F9C74F","#333333","#F9C74F"],["#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F"],["#F9C74F","#333333","#F9C74F","#F9C74F","#333333","#F9C74F"],[T,"#F9C74F","#333333","#333333","#F9C74F",T]]}
     ],
     premium: [
@@ -1335,6 +1401,34 @@ GALLERY_JS = r"""
     cta.href = ZEFFY + '?design=' + encodeURIComponent(d.name) + '&squares=' + d.px + '&donate=true';
     cta.textContent = 'Donate $' + cost.toLocaleString() + ' & Claim \u2192';
 
+    /* Place on Quilt button */
+    var placeBtn = document.getElementById('dd-place');
+    var newBtn = placeBtn.cloneNode(true);
+    placeBtn.parentNode.replaceChild(newBtn, placeBtn);
+    newBtn.addEventListener('click', function() {
+      window.__designPlacement = {name: d.name, grid: d.grid};
+      overlay.classList.remove('active');
+      /* Show placement banner */
+      var old = document.getElementById('design-place-banner');
+      if (old) old.remove();
+      var banner = document.createElement('div');
+      banner.id = 'design-place-banner';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10002;background:#277DA1;color:#fff;text-align:center;padding:12px 20px;font-family:DM Sans,sans-serif;font-size:.9rem;font-weight:500;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+      banner.innerHTML = 'Click on the quilt to place your <strong>' + d.name + '</strong> (' + d.px + ' patches \u00b7 $' + cost.toLocaleString() + ')';
+      var cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = 'background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);padding:4px 14px;border-radius:4px;cursor:pointer;font-size:.8rem';
+      cancelBtn.addEventListener('click', function() {
+        window.__designPlacement = null;
+        banner.remove();
+      });
+      banner.appendChild(cancelBtn);
+      document.body.appendChild(banner);
+      /* Scroll to quilt */
+      var quiltCanvas = document.getElementById('quilt-canvas');
+      if (quiltCanvas) quiltCanvas.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+
     overlay.classList.add('active');
   }
 
@@ -1488,6 +1582,7 @@ HTML = f"""<!DOCTYPE html>
     <div class="dd-preview" id="dd-preview"></div>
     <div class="dd-info" id="dd-info"></div>
     <a class="dd-cta" id="dd-cta" href="#" target="_blank">Donate &amp; Claim This Design &rarr;</a>
+    <button class="dd-cta dd-place-btn" id="dd-place" style="margin-top:.5rem;background:#277DA1">Place on Quilt &rarr;</button>
   </div>
 </div>
 
