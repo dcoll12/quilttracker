@@ -60,7 +60,7 @@ def _lcg_colors():
 def load_patch_data():
     """Load sheet CSV. Columns detected from header row."""
     try:
-        r = requests.get(SHEET_URL, timeout=10)
+        r = requests.get(SHEET_URL, timeout=5)
         r.raise_for_status()
         result = _parse_csv(r.text)
         # Store raw preview for debug sidebar
