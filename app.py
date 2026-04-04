@@ -1127,9 +1127,6 @@ JS = r"""
       }
 
       var designName = placement.name;
-      var designDonorName = window.__designPlacement && window.__designPlacement.donorName
-        ? window.__designPlacement.donorName
-        : (designName + ' Design');
       var patchList = placement.patches;
       var colorList = [];
       for (var i = 0; i < placement.colors.length; i++) {
@@ -1167,19 +1164,7 @@ JS = r"""
         fetch(SCRIPT, {
           method: 'POST', mode: 'no-cors',
           headers: {'Content-Type': 'text/plain'},
-          body: JSON.stringify({
-            patches: payload,
-            totalAmount: totalAmt,
-            name: donorName,
-            design_name: designName,
-            patch_ids: patchList.join(','),
-            transaction_id: txnId,
-            logged_at: new Date().toISOString()
-          })
-        }).then(function() {
-          window.open(checkoutUrl, '_blank');
-        }).catch(function() {
-          window.open(checkoutUrl, '_blank');
+          body: JSON.stringify({patches: payload, totalAmount: totalAmt, name: donorName, transaction_id: txnId, logged_at: new Date().toISOString()})
         });
       } else {
         var checkoutUrl = buildZeffyUrl({
@@ -1195,6 +1180,10 @@ JS = r"""
         });
         window.open(checkoutUrl, '_blank');
       }
+
+      /* Open Zeffy */
+      var url = buildZeffyUrl({design: encodeURIComponent(designName), donor: encodeURIComponent(designDonorName), patch: patchList.join(','), squares: patchList.length, colors: colorList.join(','), donate: 'true', amount: totalAmt});
+      window.open(url, '_blank');
 
       /* Clear placement mode */
       window.__designPlacement = null;
@@ -1617,13 +1606,7 @@ GALLERY_JS = r"""
     cta.parentNode.replaceChild(newCta, cta);
     newCta.addEventListener('click', function(e) {
       e.preventDefault();
-      var donorName = donorNameInput ? donorNameInput.value.trim() : '';
-      if (!donorName) {
-        alert('Please enter your name before placing this design.');
-        if (donorNameInput) donorNameInput.focus();
-        return;
-      }
-      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost, donorName: donorName};
+      window.__designPlacement = {name: d.name, grid: d.grid, cost: cost};
       closeDesignDetail();
       /* Show placement banner */
       var old = document.getElementById('design-place-banner');
