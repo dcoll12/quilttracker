@@ -312,6 +312,34 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 #modal-autofill-btn:hover{background:#4a6578}
 .pick-banner{position:fixed;top:0;left:0;right:0;background:""" + ACCENT + """;color:#fff;text-align:center;font-size:.82rem;font-weight:500;padding:.55rem 1rem;z-index:9999;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
+/* Design Gallery */
+.design-section{max-width:1100px;margin:2.5rem auto 0;padding:0 1.25rem 3rem}
+.design-section-title{font-family:'Playfair Display',serif;font-size:clamp(1.4rem,3vw,2rem);color:#1a3040;margin-bottom:.25rem}
+.design-section-title em{color:""" + PRIMARY + """;font-style:italic}
+.design-section-sub{font-size:.85rem;color:#4a5c5a;margin-bottom:1.5rem;line-height:1.6}
+.design-tier{margin-bottom:2rem}
+.design-tier-label{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:""" + ACCENT + """;font-weight:600;margin-bottom:.75rem;padding-bottom:.35rem;border-bottom:1px dashed rgba(248,150,30,.3)}
+.design-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem}
+.design-card{background:#fff;border:1px solid rgba(67,170,139,.15);border-radius:8px;padding:.75rem;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;text-align:center}
+.design-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.1);border-color:""" + PRIMARY + """}
+.design-preview{display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;min-height:60px}
+.design-preview canvas{image-rendering:pixelated;border-radius:3px}
+.design-name{font-family:'Playfair Display',serif;font-size:.85rem;color:#1a3040;line-height:1.2;margin-bottom:.2rem}
+.design-meta{font-size:.65rem;color:#4a5c5a}
+.design-price{font-family:'Playfair Display',serif;font-size:.95rem;color:""" + PRIMARY + """;font-weight:700;margin-top:.2rem}
+.design-detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.design-detail-overlay.active{opacity:1;pointer-events:auto}
+.design-detail{background:#faf8f3;border-radius:10px;padding:2rem;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;font-family:'DM Sans',sans-serif}
+.design-detail-close{position:absolute;top:.75rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#4a5c5a;line-height:1}
+.design-detail h2{font-family:'Playfair Display',serif;font-size:1.4rem;color:#1a3040;margin-bottom:.1rem}
+.design-detail .dd-price{font-family:'Playfair Display',serif;font-size:1.2rem;color:""" + PRIMARY + """;margin-bottom:.75rem;display:block}
+.design-detail .dd-meta{font-size:.75rem;color:#4a5c5a;margin-bottom:1rem}
+.design-detail .dd-preview{text-align:center;margin-bottom:1rem}
+.design-detail .dd-preview canvas{image-rendering:pixelated;border-radius:4px;border:1px solid rgba(0,0,0,.08)}
+.design-detail .dd-info{font-size:.8rem;color:#4a5c5a;line-height:1.6;margin-bottom:1.25rem}
+.design-detail .dd-cta{display:block;width:100%;text-align:center;background:""" + PRIMARY + """;color:#faf8f3;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;padding:.9rem 1rem;border-radius:5px;border:none;cursor:pointer;transition:background .2s;text-decoration:none}
+.design-detail .dd-cta:hover{background:#3a9b7e}
+
 @media(max-width:640px){
   .layout{flex-direction:column}
   .sidebar{flex:none;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
@@ -917,6 +945,170 @@ JS = r"""
 })();
 """
 
+# -- Gallery JS — design selection menu ----------------------------------------
+GALLERY_JS = r"""
+(function() {
+  var T = null;
+  var ZEFFY = window.__QD__.zeffyUrl;
+  var PV = window.__QD__.patchValue;
+
+  /* ── Design definitions ── */
+  var designs = {
+    mini: [
+      {name:"Music Note",   px:9,  grid:[[T,T,"#577590"],[T,T,"#577590"],[T,T,"#577590"],[T,T,"#577590"],["#577590","#577590","#577590"],["#577590","#577590",T]]},
+      {name:"Diamond",      px:9,  grid:[[T,T,"#277DA1",T,T],[T,"#277DA1","#277DA1","#277DA1",T],["#277DA1","#277DA1","#277DA1","#277DA1","#277DA1"]]},
+      {name:"Cherry",       px:9,  grid:[[T,T,T,T,"#90BE6D"],[T,T,T,"#90BE6D",T],[T,T,"#90BE6D",T,T],["#F94144",T,T,"#F94144",T],["#F94144","#F94144",T,"#F94144","#F94144"]]},
+      {name:"Lightning",    px:10, grid:[[T,T,"#F9C74F"],[T,"#F9C74F","#F9C74F"],[T,"#F9C74F",T],["#F9C74F","#F9C74F","#F9C74F"],["#F9C74F","#F9C74F",T],["#F9C74F",T,T]]},
+      {name:"Moon",          px:10, grid:[[T,"#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F",T,T],["#F9C74F",T,T,T],["#F9C74F",T,T,T],["#F9C74F","#F9C74F",T,T],[T,"#F9C74F","#F9C74F",T]]},
+      {name:"Paw Print",    px:10, grid:[[T,"#333333",T,"#333333",T],["#333333",T,T,T,"#333333"],[T,"#333333","#333333","#333333",T],[T,"#333333","#333333","#333333",T]]},
+      {name:"Tree",          px:10, grid:[[T,T,"#90BE6D",T,T],[T,"#90BE6D","#90BE6D","#90BE6D",T],["#90BE6D","#90BE6D","#90BE6D","#90BE6D","#90BE6D"],[T,T,"#F8961E",T,T]]},
+      {name:"Cactus",        px:11, grid:[[T,T,"#90BE6D",T,T],[T,T,"#90BE6D",T,T],["#90BE6D",T,"#90BE6D",T,"#90BE6D"],["#90BE6D","#90BE6D","#90BE6D","#90BE6D","#90BE6D"],[T,T,"#90BE6D",T,T]]},
+      {name:"Anchor",        px:12, grid:[[T,T,"#277DA1",T,T],[T,"#277DA1","#277DA1","#277DA1",T],[T,T,"#277DA1",T,T],[T,T,"#277DA1",T,T],["#277DA1",T,"#277DA1",T,"#277DA1"],[T,"#277DA1","#277DA1","#277DA1",T]]},
+      {name:"Cloud",         px:12, grid:[[T,T,"#FFFFFF","#FFFFFF",T,T],[T,"#FFFFFF","#FFFFFF","#FFFFFF","#FFFFFF",T],["#FFFFFF","#FFFFFF","#FFFFFF","#FFFFFF","#FFFFFF","#FFFFFF"]]},
+      {name:"Star",          px:13, grid:[[T,T,"#F9C74F",T,T],[T,"#F9C74F","#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F","#F8961E","#F9C74F","#F9C74F"],[T,"#F9C74F","#F9C74F","#F9C74F",T],[T,T,"#F9C74F",T,T]]},
+      {name:"Daisy",         px:14, grid:[[T,"#F9C74F",T,"#F9C74F",T],["#F9C74F",T,"#F8961E",T,"#F9C74F"],[T,"#F8961E","#F8961E","#F8961E",T],["#F9C74F",T,"#F8961E",T,"#F9C74F"],[T,"#F9C74F",T,"#F9C74F",T],[T,T,"#90BE6D",T,T]]},
+      {name:"Butterfly",     px:15, grid:[["#DDA0DD",T,T,T,"#DDA0DD"],["#DDA0DD","#FF69B4",T,"#FF69B4","#DDA0DD"],["#DDA0DD","#FF69B4","#333333","#FF69B4","#DDA0DD"],["#DDA0DD",T,"#333333",T,"#DDA0DD"],[T,T,"#333333",T,T]]},
+      {name:"Rainbow",       px:16, grid:[[T,"#F94144","#F94144","#F94144",T],["#F94144","#F3722C","#F3722C","#F3722C","#F94144"],["#F3722C","#F9C74F",T,"#F9C74F","#F3722C"],["#F9C74F","#90BE6D",T,"#90BE6D","#F9C74F"]]},
+      {name:"Alien",         px:17, grid:[[T,"#90BE6D","#90BE6D","#90BE6D",T],["#90BE6D","#90BE6D","#90BE6D","#90BE6D","#90BE6D"],["#90BE6D","#333333","#90BE6D","#333333","#90BE6D"],[T,"#90BE6D","#90BE6D","#90BE6D",T],[T,T,"#90BE6D",T,T]]},
+      {name:"Sun",           px:17, grid:[[T,"#F9C74F",T,"#F9C74F",T],["#F9C74F","#F8961E","#F8961E","#F8961E","#F9C74F"],[T,"#F8961E","#F9C74F","#F8961E",T],["#F9C74F","#F8961E","#F8961E","#F8961E","#F9C74F"],[T,"#F9C74F",T,"#F9C74F",T]]},
+      {name:"Mini Heart",    px:21, grid:[[T,"#F94144",T,T,"#F94144",T],["#F94144","#F94144","#F94144","#F94144","#F94144","#F94144"],["#F94144","#F94144","#F94144","#F94144","#F94144","#F94144"],[T,"#F94144","#F94144","#F94144","#F94144",T],[T,T,"#F94144","#F94144",T,T],[T,T,T,"#F94144",T,T]]},
+      {name:"Crown",         px:22, grid:[[T,"#F9C74F",T,"#F9C74F",T,"#F9C74F",T],[T,"#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F","#F8961E","#F9C74F","#F8961E","#F9C74F","#F9C74F"],["#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F"]]},
+      {name:"Peace Sign",    px:23, grid:[[T,T,"#43AA8B","#43AA8B","#43AA8B",T,T],[T,"#43AA8B",T,"#43AA8B",T,"#43AA8B",T],["#43AA8B",T,T,"#43AA8B",T,T,"#43AA8B"],["#43AA8B",T,"#43AA8B","#43AA8B","#43AA8B",T,"#43AA8B"],["#43AA8B",T,T,"#43AA8B",T,T,"#43AA8B"],[T,"#43AA8B",T,"#43AA8B",T,"#43AA8B",T],[T,T,"#43AA8B","#43AA8B","#43AA8B",T,T]]},
+      {name:"Smiley",        px:32, grid:[[T,"#F9C74F","#F9C74F","#F9C74F","#F9C74F",T],["#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F"],["#F9C74F","#333333","#F9C74F","#F9C74F","#333333","#F9C74F"],["#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F","#F9C74F"],["#F9C74F","#333333","#F9C74F","#F9C74F","#333333","#F9C74F"],[T,"#F9C74F","#333333","#333333","#F9C74F",T]]}
+    ],
+    premium: [
+      {name:"Rose",       px:51,  desc:"Red rose with stem"},
+      {name:"Ladybug",    px:74,  desc:"Cute ladybug"},
+      {name:"Koi Fish",   px:80,  desc:"Japanese koi fish"},
+      {name:"Unicorn",    px:87,  desc:"Magical unicorn head"},
+      {name:"Turtle",     px:113, desc:"Sea turtle swimming"},
+      {name:"Penguin",    px:118, desc:"Penguin with scarf"},
+      {name:"Dragon",     px:122, desc:"Fire-breathing dragon"},
+      {name:"Sunflower",  px:132, desc:"Big sunflower bloom"},
+      {name:"Corgi",      px:143, desc:"Cute corgi face"},
+      {name:"Owl",        px:165, desc:"Wise owl perched"}
+    ],
+    ultra: [
+      {name:"Whale",         px:135, desc:"Majestic blue whale"},
+      {name:"Phoenix",       px:194, desc:"Rising phoenix in flames"},
+      {name:"Panda",         px:200, desc:"Cute giant panda"},
+      {name:"Octopus",       px:204, desc:"Kawaii octopus"},
+      {name:"Sailboat",      px:213, desc:"Sailboat at sunset"},
+      {name:"Frog",          px:253, desc:"Frog on lily pad"},
+      {name:"Elephant",      px:294, desc:"Gentle elephant"},
+      {name:"Tree of Life",  px:330, desc:"Majestic tree of life"}
+    ]
+  };
+
+  /* ── Render a pixel grid onto a small canvas ── */
+  function renderDesignCanvas(grid, targetSize) {
+    var rows = grid.length;
+    var cols = 0;
+    for (var r = 0; r < rows; r++) {
+      if (grid[r].length > cols) cols = grid[r].length;
+    }
+    var ps = Math.max(1, Math.floor(targetSize / Math.max(rows, cols)));
+    var c = document.createElement('canvas');
+    c.width = cols * ps;
+    c.height = rows * ps;
+    c.style.width = c.width + 'px';
+    c.style.height = c.height + 'px';
+    var ctx = c.getContext('2d');
+    for (var r = 0; r < rows; r++) {
+      for (var col = 0; col < grid[r].length; col++) {
+        var color = grid[r][col];
+        if (color) {
+          ctx.fillStyle = color;
+          ctx.fillRect(col * ps, r * ps, ps, ps);
+        }
+      }
+    }
+    return c;
+  }
+
+  /* ── Create a card element ── */
+  function createCard(d, tier) {
+    var card = document.createElement('div');
+    card.className = 'design-card';
+    var cost = d.px * PV;
+
+    var preview = document.createElement('div');
+    preview.className = 'design-preview';
+    if (d.grid) {
+      preview.appendChild(renderDesignCanvas(d.grid, 64));
+    } else {
+      var placeholder = document.createElement('div');
+      placeholder.style.cssText = 'width:60px;height:60px;background:linear-gradient(135deg,rgba(67,170,139,.15),rgba(248,150,30,.15));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem';
+      placeholder.textContent = d.name.charAt(0);
+      preview.appendChild(placeholder);
+    }
+    card.appendChild(preview);
+
+    var name = document.createElement('div');
+    name.className = 'design-name';
+    name.textContent = d.name;
+    card.appendChild(name);
+
+    var meta = document.createElement('div');
+    meta.className = 'design-meta';
+    meta.textContent = d.px + ' patches';
+    card.appendChild(meta);
+
+    var price = document.createElement('div');
+    price.className = 'design-price';
+    price.textContent = '$' + cost.toLocaleString();
+    card.appendChild(price);
+
+    card.addEventListener('click', function() { openDesignDetail(d, tier); });
+    return card;
+  }
+
+  /* ── Open design detail overlay ── */
+  function openDesignDetail(d, tier) {
+    var overlay = document.getElementById('design-detail-overlay');
+    var cost = d.px * PV;
+
+    document.getElementById('dd-name').textContent = d.name;
+    document.getElementById('dd-price').textContent = '$' + cost.toLocaleString();
+    document.getElementById('dd-meta').textContent = d.px + ' patches \u00b7 ' + (d.desc || tier + ' design');
+
+    var previewEl = document.getElementById('dd-preview');
+    previewEl.innerHTML = '';
+    if (d.grid) {
+      previewEl.appendChild(renderDesignCanvas(d.grid, 160));
+    }
+
+    var info = document.getElementById('dd-info');
+    info.innerHTML = 'This design uses <strong>' + d.px + ' patches</strong> on the quilt. ' +
+      'Your $' + cost.toLocaleString() + ' donation will place this pixel art design on the quilt for everyone to see. ' +
+      'Click below to donate and we\u2019ll place your design!';
+
+    var cta = document.getElementById('dd-cta');
+    cta.href = ZEFFY + '?design=' + encodeURIComponent(d.name) + '&squares=' + d.px + '&donate=true';
+    cta.textContent = 'Donate $' + cost.toLocaleString() + ' & Claim \u2192';
+
+    overlay.classList.add('active');
+  }
+
+  /* ── Close detail ── */
+  document.getElementById('design-detail-close').addEventListener('click', function() {
+    document.getElementById('design-detail-overlay').classList.remove('active');
+  });
+  document.getElementById('design-detail-overlay').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('active');
+  });
+
+  /* ── Populate grids ── */
+  var miniGrid = document.getElementById('design-grid-mini');
+  var premGrid = document.getElementById('design-grid-premium');
+  var ultraGrid = document.getElementById('design-grid-ultra');
+
+  designs.mini.forEach(function(d) { miniGrid.appendChild(createCard(d, 'Mini')); });
+  designs.premium.forEach(function(d) { premGrid.appendChild(createCard(d, 'Premium')); });
+  designs.ultra.forEach(function(d) { ultraGrid.appendChild(createCard(d, 'Ultra')); });
+})();
+"""
+
 # -- Inject Python data as inline script ----------------------------------------
 data_script = (
     "<script>window.__QD__ = {"
@@ -1017,6 +1209,40 @@ HTML = f"""<!DOCTYPE html>
   </div>
 </div>
 
+<!-- Design Gallery -->
+<div class="design-section">
+  <h2 class="design-section-title">Claim a <em>Pixel Art Design</em></h2>
+  <p class="design-section-sub">Pick a pre-made design and place it on the quilt with your donation. Click any design below to preview it and claim your spot.</p>
+
+  <div class="design-tier">
+    <div class="design-tier-label">Mini Designs &middot; $160 &ndash; $640</div>
+    <div class="design-grid" id="design-grid-mini"></div>
+  </div>
+
+  <div class="design-tier">
+    <div class="design-tier-label">Premium Designs &middot; $1,000 &ndash; $3,300</div>
+    <div class="design-grid" id="design-grid-premium"></div>
+  </div>
+
+  <div class="design-tier">
+    <div class="design-tier-label">Showpiece Designs &middot; $2,700 &ndash; $6,600+</div>
+    <div class="design-grid" id="design-grid-ultra"></div>
+  </div>
+</div>
+
+<!-- Design Detail Overlay -->
+<div class="design-detail-overlay" id="design-detail-overlay">
+  <div class="design-detail">
+    <button class="design-detail-close" id="design-detail-close">&times;</button>
+    <h2 id="dd-name"></h2>
+    <span class="dd-price" id="dd-price"></span>
+    <div class="dd-meta" id="dd-meta"></div>
+    <div class="dd-preview" id="dd-preview"></div>
+    <div class="dd-info" id="dd-info"></div>
+    <a class="dd-cta" id="dd-cta" href="#" target="_blank">Donate &amp; Claim This Design &rarr;</a>
+  </div>
+</div>
+
 <!-- Modal -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
@@ -1046,7 +1272,8 @@ HTML = f"""<!DOCTYPE html>
 
 <div id="tip"></div>
 <script>{JS}</script>
+<script>{GALLERY_JS}</script>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=1800, scrolling=False)
+st.components.v1.html(HTML, height=2800, scrolling=True)
