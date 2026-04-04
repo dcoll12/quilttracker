@@ -475,6 +475,8 @@ JS = r"""
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
   }
   setTimeout(notifyHeight, 300);
+  /* Keep-alive: ping parent every 28s to prevent Streamlit sleep */
+  setInterval(notifyHeight, 28000);
   window.addEventListener('resize', function() { sizeCanvas(); notifyHeight(); });
 
   var tip = document.getElementById('tip');
