@@ -71,18 +71,22 @@
 
     .canvas-wrap {
       position: relative;
-      width: 100%;
-      max-width: 720px;
+      width: 90%;
+      max-width: 1100px;
+      aspect-ratio: 5 / 3;
       border-radius: 10px;
       overflow: hidden;
       box-shadow: 0 8px 40px rgba(26, 48, 64, 0.12);
       border: 3px solid rgba(67, 170, 139, 0.25);
+      resize: both;
+      min-width: 300px;
+      min-height: 180px;
     }
 
     canvas#quilt {
       display: block;
       width: 100%;
-      height: auto;
+      height: 100%;
       background: var(--bg);
     }
 
@@ -215,7 +219,7 @@
 
   <section class="quilt-section">
     <div class="canvas-wrap">
-      <canvas id="quilt" width="750" height="450"></canvas>
+      <canvas id="quilt"></canvas>
       <div class="canvas-label">37,500 patches &middot; one community</div>
     </div>
   </section>
@@ -266,14 +270,11 @@
     // ── Animated Quilt Canvas ──
     (function () {
       const canvas = document.getElementById('quilt');
+      const wrap = canvas.parentElement;
       const ctx = canvas.getContext('2d');
-      const W = canvas.width;
-      const H = canvas.height;
 
       const COLS = 150;
       const ROWS = 90;
-      const pw = W / COLS;
-      const ph = H / ROWS;
       const total = COLS * ROWS;
 
       const PAL = [
@@ -299,46 +300,67 @@
         [order[i], order[j]] = [order[j], order[i]];
       }
 
-      // Draw empty grid
-      function drawEmpty() {
+      // Redraw the full quilt at current canvas size
+      function redraw() {
+        const W = canvas.width;
+        const H = canvas.height;
+        const pw = W / COLS;
+        const ph = H / ROWS;
+
         ctx.fillStyle = '#f0ece4';
         ctx.fillRect(0, 0, W, H);
         for (let r = 0; r < ROWS; r++) {
           for (let c = 0; c < COLS; c++) {
-            ctx.fillStyle = '#e8e2d8';
+            const idx = r * COLS + c;
+            ctx.fillStyle = filled[idx] ? colors[idx] : '#e8e2d8';
             ctx.fillRect(c * pw + 0.5, r * ph + 0.5, pw - 1, ph - 1);
           }
         }
       }
 
-      function fillCell(idx) {
-        const c = idx % COLS;
-        const r = Math.floor(idx / COLS);
-        ctx.fillStyle = colors[idx];
-        ctx.fillRect(c * pw + 0.5, r * ph + 0.5, pw - 1, ph - 1);
+      // Resize canvas to match container and redraw
+      function resize() {
+        const rect = wrap.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        // Use CSS dimensions for drawing math
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        redraw();
       }
 
-      drawEmpty();
+      // Watch for container resize (drag handle or window)
+      new ResizeObserver(resize).observe(wrap);
+      resize();
 
       // Animate patches filling in
       let ptr = 0;
       const batchSize = 24;
-      const interval = 30;
-      // Fill up to ~40% for a nice preview look
       const fillTarget = Math.floor(total * 0.4);
 
       function animate() {
         if (ptr >= fillTarget) return;
+        const W = canvas.width;
+        const H = canvas.height;
+        const pw = W / COLS;
+        const ph = H / ROWS;
         const end = Math.min(ptr + batchSize, fillTarget);
         for (let i = ptr; i < end; i++) {
-          filled[order[i]] = 1;
-          fillCell(order[i]);
+          const idx = order[i];
+          filled[idx] = 1;
+          const c = idx % COLS;
+          const r = Math.floor(idx / COLS);
+          ctx.fillStyle = colors[idx];
+          ctx.fillRect(c * pw + 0.5, r * ph + 0.5, pw - 1, ph - 1);
         }
         ptr = end;
         requestAnimationFrame(animate);
       }
 
-      // Start animation after a short delay
       setTimeout(animate, 400);
     })();
   </script>
