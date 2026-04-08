@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community Crossroads Quilt</title>
+  <meta name="description" content="Join the Community Crossroads Quilt — a collaborative fundraising campaign to preserve 0.70 acres in Salem, Indiana. Every $20 patch brings us closer to our $750,000 goal.">
+  <meta property="og:title" content="Community Crossroads Quilt">
+  <meta property="og:description" content="A collaborative quilt fundraiser to conserve land in Salem, Indiana. Claim your patch for just $20.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://crossroadscommons.community">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #43AA8B;
+      --accent: #F8961E;
+      --bg: #faf8f3;
+      --dark: #1a3040;
+      --red: #F94144;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--dark);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 3rem 1.5rem 2rem;
+      position: relative;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5.5vw, 3.4rem);
+      line-height: 1.1;
+      margin-bottom: 0.6rem;
+    }
+
+    .hero .tagline {
+      font-size: clamp(0.95rem, 2vw, 1.15rem);
+      color: #5a6e7a;
+      max-width: 540px;
+      line-height: 1.55;
+      margin-bottom: 1.6rem;
+    }
+
+    /* ── Quilt Canvas Section ── */
+    .quilt-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 1.5rem 2.5rem;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 720px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(26, 48, 64, 0.12);
+      border: 3px solid rgba(67, 170, 139, 0.25);
+    }
+
+    canvas#quilt {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: var(--bg);
+    }
+
+    .canvas-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(26,48,64,0.85));
+      color: #fff;
+      padding: 2.5rem 1.2rem 1rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    /* ── Stats Row ── */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+      padding: 1.5rem 1.5rem 0;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-val {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      color: var(--primary);
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8a9ba5;
+      margin-top: 0.2rem;
+    }
+
+    /* ── Info Section ── */
+    .info {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+      padding: 2rem 1.5rem;
+      line-height: 1.65;
+    }
+
+    .info h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.3rem, 3vw, 1.8rem);
+      margin-bottom: 0.75rem;
+    }
+
+    .info p {
+      color: #5a6e7a;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+
+    .info p:last-of-type { margin-bottom: 0; }
+
+    /* ── CTA Button ── */
+    .cta-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 1rem 1.5rem 3.5rem;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--primary);
+      color: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 1rem 2.4rem;
+      border-radius: 5px;
+      transition: background 0.2s, transform 0.15s;
+      box-shadow: 0 4px 16px rgba(67, 170, 139, 0.3);
+    }
+
+    .cta:hover {
+      background: #3a9a7d;
+      transform: translateY(-1px);
+    }
+
+    .cta svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.72rem;
+      color: #b0b8be;
+      margin-top: auto;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 520px) {
+      .stats { gap: 1.2rem; }
+      .stat-val { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="hero">
+    <h1>Community Crossroads Quilt</h1>
+    <p class="tagline">A collaborative fundraiser to preserve 0.70 acres of land in Salem, Indiana. Every $20 patch stitches our community closer together.</p>
+  </section>
+
+  <section class="quilt-section">
+    <div class="canvas-wrap">
+      <canvas id="quilt" width="750" height="450"></canvas>
+      <div class="canvas-label">37,500 patches &middot; one community</div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val">$750,000</div>
+      <div class="stat-label">Campaign Goal</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">$20</div>
+      <div class="stat-label">Per Patch</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">37,500</div>
+      <div class="stat-label">Total Patches</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="countdown">--</div>
+      <div class="stat-label">Days Left</div>
+    </div>
+  </div>
+
+  <section class="info">
+    <h2>Every Patch Counts</h2>
+    <p>Claim a patch on the quilt for just $20 and help us reach our goal. Choose your color, pick your spot, and become part of a living mosaic of community support.</p>
+    <p>Premium pixel art designs are also available for larger contributions — from tiny icons to stunning showpieces.</p>
+  </section>
+
+  <div class="cta-wrap">
+    <a class="cta" href="https://crossroadscommons.community" target="_blank" rel="noopener">
+      Visit the Quilt
+      <svg viewBox="0 0 20 20"><path d="M11 3a1 1 0 1 0 0 2h2.586l-6.293 6.293a1 1 0 1 0 1.414 1.414L15 6.414V9a1 1 0 1 0 2 0V4a1 1 0 0 0-1-1h-5z"/><path d="M5 5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3a1 1 0 1 0-2 0v3H5V7h3a1 1 0 0 0 0-2H5z"/></svg>
+    </a>
+  </div>
+
+  <footer>Community Crossroads &middot; Salem, Indiana</footer>
+
+  <script>
+    // ── Countdown ──
+    (function updateCountdown() {
+      const deadline = new Date('2026-07-09T17:00:00');
+      const now = new Date();
+      const days = Math.max(0, Math.ceil((deadline - now) / 86400000));
+      document.getElementById('countdown').textContent = days;
+    })();
+
+    // ── Animated Quilt Canvas ──
+    (function () {
+      const canvas = document.getElementById('quilt');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;
+      const H = canvas.height;
+
+      const COLS = 150;
+      const ROWS = 90;
+      const pw = W / COLS;
+      const ph = H / ROWS;
+      const total = COLS * ROWS;
+
+      const PAL = [
+        '#F94144', '#F3722C', '#F8961E', '#F9844A', '#F9C74F',
+        '#90BE6D', '#43AA8B', '#4D908E', '#577590', '#277DA1'
+      ];
+
+      // Assign deterministic colors via LCG (matching the real quilt)
+      const colors = [];
+      let seed = 99991;
+      for (let i = 0; i < total; i++) {
+        seed = (seed * 16807) % 2147483647;
+        colors.push(PAL[Math.floor((seed / 2147483647) * PAL.length)]);
+      }
+
+      // Track which cells are "filled"
+      const filled = new Uint8Array(total);
+
+      // Shuffle order for fill animation
+      const order = Array.from({ length: total }, (_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+
+      // Draw empty grid
+      function drawEmpty() {
+        ctx.fillStyle = '#f0ece4';
+        ctx.fillRect(0, 0, W, H);
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            ctx.fillStyle = '#e8e2d8';
+            ctx.fillRect(c * pw + 0.5, r * ph + 0.5, pw - 1, ph - 1);
+          }
+        }
+      }
+
+      function fillCell(idx) {
+        const c = idx % COLS;
+        const r = Math.floor(idx / COLS);
+        ctx.fillStyle = colors[idx];
+        ctx.fillRect(c * pw + 0.5, r * ph + 0.5, pw - 1, ph - 1);
+      }
+
+      drawEmpty();
+
+      // Animate patches filling in
+      let ptr = 0;
+      const batchSize = 24;
+      const interval = 30;
+      // Fill up to ~40% for a nice preview look
+      const fillTarget = Math.floor(total * 0.4);
+
+      function animate() {
+        if (ptr >= fillTarget) return;
+        const end = Math.min(ptr + batchSize, fillTarget);
+        for (let i = ptr; i < end; i++) {
+          filled[order[i]] = 1;
+          fillCell(order[i]);
+        }
+        ptr = end;
+        requestAnimationFrame(animate);
+      }
+
+      // Start animation after a short delay
+      setTimeout(animate, 400);
+    })();
+  </script>
+</body>
+</html>
