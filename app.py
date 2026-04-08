@@ -4,8 +4,45 @@ import json
 import math
 import csv
 import io
+import os
 import random
+import threading
+import time
 from datetime import datetime
+
+
+# ---------------------------------------------------------------------------
+# Keep-alive self-ping — prevents the hosting platform from sleeping the app.
+# Set the APP_URL environment variable to the public URL of this app
+# (e.g. https://quilttracker.onrender.com). Also honours RENDER_EXTERNAL_URL
+# which Render sets automatically.
+# ---------------------------------------------------------------------------
+_keep_alive_started = False
+
+
+def _start_keep_alive(interval: int = 300):
+    """Spawn a daemon thread that pings the app's own URL every *interval* seconds."""
+    global _keep_alive_started
+    if _keep_alive_started:
+        return
+    _keep_alive_started = True
+
+    url = os.environ.get("APP_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+    if not url:
+        return  # no URL configured — skip
+
+    def _ping():
+        while True:
+            try:
+                requests.head(url, timeout=10)
+            except Exception:
+                pass
+            time.sleep(interval)
+
+    threading.Thread(target=_ping, daemon=True).start()
+
+
+_start_keep_alive()
 
 st.set_page_config(
     page_title="Community Crossroads Quilt",
