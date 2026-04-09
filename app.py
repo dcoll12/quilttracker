@@ -1698,21 +1698,21 @@ HTML = f"""<!DOCTYPE html>
 <script>{JS}</script>
 <script>{GALLERY_JS}</script>
 <script>
-(function() {
-  function resizeFrame() {
+(function() {{
+  function resizeFrame() {{
     var h = document.body.scrollHeight;
-    if (window.frameElement) {
+    if (window.frameElement) {{
       window.frameElement.style.height = h + 'px';
-    }
-    if (window.parent && window.parent.postMessage) {
-      window.parent.postMessage({type: 'streamlit:setFrameHeight', height: h}, '*');
-    }
-  }
+    }}
+    if (window.parent && window.parent.postMessage) {{
+      window.parent.postMessage({{type: 'streamlit:setFrameHeight', height: h}}, '*');
+    }}
+  }}
   window.addEventListener('load', resizeFrame);
-  new MutationObserver(resizeFrame).observe(document.body, {childList: true, subtree: true, attributes: true});
+  new MutationObserver(resizeFrame).observe(document.body, {{childList: true, subtree: true, attributes: true}});
   setTimeout(resizeFrame, 500);
   setTimeout(resizeFrame, 1500);
-})();
+}})();
 </script>
 </body>
 </html>"""
