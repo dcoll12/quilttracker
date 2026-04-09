@@ -270,12 +270,13 @@ st.markdown(
     .stApp, html, body, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {background: #faf8f3 !important; overflow-x: hidden !important;}
     .stApp > header {display: none !important; height: 0 !important;}
     .stApp [data-testid="stHeader"] {display: none !important; height: 0 !important;}
-    .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; padding-bottom: 0 !important; max-width: 100% !important; overflow-x: hidden !important; margin-top: -3rem !important;}
+    .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; padding-bottom: 0 !important; max-width: 100% !important; overflow-x: hidden !important; margin-top: -3rem !important; margin-bottom: 0 !important;}
     [data-testid="stAppViewContainer"] > section > div {padding: 0 !important;}
     section[data-testid="stSidebar"] {display: none;}
     html, body {overflow-x: hidden !important;}
-    iframe[title="streamlit_components.v1.components.html"] {display: block !important;}
-    .stApp > footer, footer {display: none !important; height: 0 !important; visibility: hidden !important;}
+    [data-testid="stBottom"], [data-testid="stBottom"] > *, footer, .stApp > footer {display: none !important; height: 0 !important; min-height: 0 !important; visibility: hidden !important; position: fixed !important; bottom: -100px !important;}
+    [data-testid="stElementToolbar"] {display: none !important;}
+    .stHtml, [data-testid="stHtml"] {margin-bottom: 0 !important; padding-bottom: 0 !important;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -1696,7 +1697,24 @@ HTML = f"""<!DOCTYPE html>
 <div id="tip"></div>
 <script>{JS}</script>
 <script>{GALLERY_JS}</script>
+<script>
+(function() {
+  function resizeFrame() {
+    var h = document.body.scrollHeight;
+    if (window.frameElement) {
+      window.frameElement.style.height = h + 'px';
+    }
+    if (window.parent && window.parent.postMessage) {
+      window.parent.postMessage({type: 'streamlit:setFrameHeight', height: h}, '*');
+    }
+  }
+  window.addEventListener('load', resizeFrame);
+  new MutationObserver(resizeFrame).observe(document.body, {childList: true, subtree: true, attributes: true});
+  setTimeout(resizeFrame, 500);
+  setTimeout(resizeFrame, 1500);
+})();
+</script>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=900, scrolling=True)
+st.components.v1.html(HTML, height=2400, scrolling=False)
