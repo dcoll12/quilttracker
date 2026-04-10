@@ -1625,8 +1625,6 @@ HTML = f"""<!DOCTYPE html>
         <div class="cd-num">{days_remaining}</div>
         <div class="cd-label">days until July 9</div>
       </div>
-      <a href="{ZEFFY_URL}" class="donate-btn" target="_blank">Claim a Patch &rarr;</a>
-      <p class="micro">$20 = 1 patch. $100 = 5 patches.<br>Pick your own colors!<br>Every single voice counts.</p>
     </div>
   </div>
 </div>
