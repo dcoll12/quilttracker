@@ -17,24 +17,18 @@ from datetime import datetime
 # (e.g. https://quilttracker.onrender.com). Also honours RENDER_EXTERNAL_URL
 # which Render sets automatically.
 # ---------------------------------------------------------------------------
-_keep_alive_started = False
 
 
+@st.cache_resource
 def _start_keep_alive(interval: int = 300):
-    """Spawn a daemon thread that pings the app's own URL every *interval* seconds."""
-    global _keep_alive_started
-    if _keep_alive_started:
-        return
-    _keep_alive_started = True
-
     url = os.environ.get("APP_URL") or os.environ.get("RENDER_EXTERNAL_URL")
     if not url:
-        return  # no URL configured — skip
+        return
 
     def _ping():
         while True:
             try:
-                requests.head(url, timeout=10)
+                requests.get(url, timeout=10)
             except Exception:
                 pass
             time.sleep(interval)
