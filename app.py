@@ -20,7 +20,7 @@ from datetime import datetime
 
 
 @st.cache_resource
-def _start_keep_alive(interval: int = 300):
+def _start_keep_alive(interval: int = 240):
     url = os.environ.get("APP_URL") or os.environ.get("RENDER_EXTERNAL_URL")
     if not url:
         return
@@ -28,12 +28,13 @@ def _start_keep_alive(interval: int = 300):
     def _ping():
         while True:
             try:
-                requests.get(url, timeout=10)
+                requests.get(url, timeout=15)
             except Exception:
                 pass
             time.sleep(interval)
 
-    threading.Thread(target=_ping, daemon=True).start()
+    t = threading.Thread(target=_ping, daemon=True)
+    t.start()
 
 
 _start_keep_alive()
