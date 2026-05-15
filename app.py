@@ -276,18 +276,18 @@ st.markdown(
 # -- CSS -----------------------------------------------------------------------
 CSS = """
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#1a3040}
-.wrap{width:100%;height:100vh;padding:1rem 1.25rem .5rem;display:flex;flex-direction:column;overflow:hidden}
+html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#1a3040}
+.wrap{width:100%;padding:1rem 1.25rem 1.5rem}
 .eyebrow{font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:""" + ACCENT + """;font-weight:500;margin-bottom:.5rem}
 .title{font-family:'Playfair Display',serif;font-size:clamp(1.9rem,5vw,3rem);line-height:1.1;color:#1a3040;margin-bottom:.6rem}
 .title em{color:""" + PRIMARY + """;font-style:italic}
 .tagline{font-size:.95rem;line-height:1.7;color:#4a5c5a;max-width:620px;margin-bottom:.5rem}
 .fun-note{display:inline-block;font-size:.75rem;color:#F94144;font-style:italic;background:rgba(249,65,68,.07);padding:.3rem .75rem;border-radius:20px;border:1px dashed rgba(249,65,68,.25);margin-bottom:1.25rem}
-.layout{display:flex;gap:2rem;align-items:stretch;flex:1;min-height:0}
-.quilt-col{flex:1;min-width:280px;display:flex;flex-direction:column;min-height:0}
+.layout{display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap}
+.quilt-col{flex:1;min-width:280px}
 .sidebar{flex:0 0 210px;min-width:180px}
-.quilt-border{border:3px solid #1a3040;border-radius:4px;padding:3px;background:#1a3040;width:100%;position:relative;overflow:hidden;flex:1;min-height:0}
-.quilt-grid{position:relative;width:100%;height:100%}
+.quilt-border{border:3px solid #1a3040;border-radius:4px;padding:3px;background:#1a3040;width:100%;position:relative;overflow:hidden}
+.quilt-grid{position:relative;width:100%}
 #quilt-canvas{display:block}
 .zoom-controls{display:flex;gap:.35rem;margin-top:.5rem;align-items:center}
 .zoom-btn{background:#1a3040;color:#faf8f3;border:none;border-radius:3px;width:28px;height:28px;font-size:1rem;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center}
@@ -409,12 +409,12 @@ JS = r"""
 
   function sizeCanvas() {
     var containerW = canvas.parentElement.clientWidth;
-    var containerH = canvas.parentElement.clientHeight;
     var scale = containerW / fullW;
     minZoom = scale;
     if (zoom < minZoom) zoom = minZoom;
     canvas.width = containerW;
-    var visH = containerH > 100 ? containerH : Math.max(400, fullH * minZoom);
+    var viewH = window.innerHeight || 600;
+    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.72, fullH * minZoom));
     canvas.height = visH;
     canvas.style.height = visH + 'px';
     clampPan();
@@ -573,12 +573,12 @@ JS = r"""
     return result;
   }
 
-  /* Report viewport height so iframe fills the window */
+  /* Auto-resize iframe height */
   function notifyHeight() {
-    var h = window.innerHeight || document.documentElement.clientHeight;
+    var h = document.body.scrollHeight;
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
   }
-  setTimeout(notifyHeight, 100);
+  setTimeout(notifyHeight, 300);
   window.addEventListener('resize', function() { sizeCanvas(); notifyHeight(); });
 
   var tip = document.getElementById('tip');
@@ -1789,7 +1789,7 @@ HTML = f"""<!DOCTYPE html>
 <script>
 (function() {{
   function resizeFrame() {{
-    var h = window.innerHeight || document.documentElement.clientHeight;
+    var h = document.body.scrollHeight;
     if (window.frameElement) {{
       window.frameElement.style.height = h + 'px';
     }}
@@ -1798,12 +1798,12 @@ HTML = f"""<!DOCTYPE html>
     }}
   }}
   window.addEventListener('load', resizeFrame);
-  window.addEventListener('resize', resizeFrame);
-  setTimeout(resizeFrame, 100);
+  new MutationObserver(resizeFrame).observe(document.body, {{childList: true, subtree: true, attributes: true}});
   setTimeout(resizeFrame, 500);
+  setTimeout(resizeFrame, 1500);
 }})();
 </script>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=800, scrolling=False)
+st.components.v1.html(HTML, height=2400, scrolling=False)
