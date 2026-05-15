@@ -416,8 +416,8 @@ JS = r"""
     if (zoom < minZoom) zoom = minZoom;
     canvas.width = containerW;
     var viewH = window.innerHeight || 600;
-    /* Wide/short: cap height at 30% of viewport so the quilt is a horizontal band */
-    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.30, fullH * minZoom));
+    /* Wide/short: cap height at 20% of viewport so the quilt is a horizontal band */
+    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.20, fullH * minZoom));
     canvas.height = visH;
     canvas.style.height = visH + 'px';
     clampPan();
