@@ -1802,9 +1802,11 @@ HTML = f"""<!DOCTYPE html>
   new MutationObserver(resizeFrame).observe(document.body, {{childList: true, subtree: true, attributes: true}});
   setTimeout(resizeFrame, 500);
   setTimeout(resizeFrame, 1500);
+  setTimeout(resizeFrame, 3000);
+  setTimeout(resizeFrame, 5000);
 }})();
 </script>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=3200, scrolling=False)
+st.components.v1.html(HTML, height=6000, scrolling=False)
