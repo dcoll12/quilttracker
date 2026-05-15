@@ -249,13 +249,9 @@ for i in range(TOTAL):
     else:
         resolved_colors.append("")
 colors_json = json.dumps(resolved_colors)
-total_raised = round(sum(amounts))
 claimed_patches = sum(1 for a in amounts if a >= PATCH_VALUE)
 unclaimed = TOTAL - claimed_patches
 days_remaining = _days_remaining()
-pct_goal = round(min(100.0, total_raised / GOAL * 100), 1)
-raised_fmt = f"${total_raised:,}"
-raised_sub = "Be the first patch!" if total_raised == 0 else f"{claimed_patches} patches claimed"
 grid_html = _build_grid_html(amounts, sheet_colors, default_colors)
 
 st.markdown(
@@ -287,15 +283,6 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .title em{color:""" + PRIMARY + """;font-style:italic}
 .tagline{font-size:.95rem;line-height:1.7;color:#4a5c5a;max-width:620px;margin-bottom:.5rem}
 .fun-note{display:inline-block;font-size:.75rem;color:#F94144;font-style:italic;background:rgba(249,65,68,.07);padding:.3rem .75rem;border-radius:20px;border:1px dashed rgba(249,65,68,.25);margin-bottom:1.25rem}
-.progress-wrap{margin:1.5rem 0 1.75rem}
-.progress-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem}
-.progress-raised{font-family:'Playfair Display',serif;font-size:1.35rem;color:""" + PRIMARY + """}
-.progress-goal{font-size:.78rem;color:#4a5c5a}
-.progress-track{height:10px;background:rgba(67,170,139,.12);border-radius:99px;overflow:hidden}
-.progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,""" + PRIMARY + """ 0%,#90BE6D 60%,""" + ACCENT + """ 100%);transition:width .8s ease;width:0%}
-.progress-sub{display:flex;gap:1.5rem;margin-top:.6rem;flex-wrap:wrap}
-.prog-chip{font-size:.7rem;color:#4a5c5a;display:flex;align-items:center;gap:.35rem}
-.prog-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 .layout{display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap}
 .quilt-col{flex:1;min-width:280px}
 .sidebar{flex:0 0 210px;min-width:180px}
@@ -397,7 +384,6 @@ JS = r"""
   var PV     = D.patchValue;
   var ZEFFY  = D.zeffyUrl;
   var SCRIPT = D.appsScriptUrl;
-  var PCT    = D.pctGoal;
   var TOTAL  = D.total;
   var GRID_COLS = D.cols;
   var GRID_ROWS = D.rows;
@@ -585,10 +571,6 @@ JS = r"""
     }
     return result;
   }
-
-  /* Animate progress bar */
-  var fill = document.getElementById('progress-fill');
-  if (fill) setTimeout(function() { fill.style.width = PCT + '%'; }, 150);
 
   /* Auto-resize iframe height */
   function notifyHeight() {
@@ -1671,8 +1653,7 @@ data_script = (
     + f'"cols":{COLS},'
     + f'"rows":{ROWS},'
     + f'"zeffyUrl":"{ZEFFY_URL}",'
-    + f'"appsScriptUrl":"{APPS_SCRIPT_URL}",'
-    + f'"pctGoal":{pct_goal}'
+    + f'"appsScriptUrl":"{APPS_SCRIPT_URL}"'
     + "};</script>"
 )
 
@@ -1694,26 +1675,6 @@ HTML = f"""<!DOCTYPE html>
   <h1 class="title">The Community<br><em>Crossroads Quilt</em></h1>
   <p class="tagline">37,500 patches. One for every $20 it takes to save .70 acres of this corner forever. Every voice fills a square.</p>
   <span class="fun-note">&#x1F9F5; No actual sewing required.</span>
-
-  <div class="progress-wrap">
-    <div class="progress-header">
-      <span class="progress-raised">{raised_fmt} raised</span>
-      <span class="progress-goal">of $750,000 goal</span>
-    </div>
-    <div class="progress-track">
-      <div class="progress-fill" id="progress-fill"></div>
-    </div>
-    <div class="progress-sub">
-      <span class="prog-chip">
-        <span class="prog-dot" style="background:{PRIMARY}"></span>
-        {claimed_patches} claimed
-      </span>
-      <span class="prog-chip">
-        <span class="prog-dot" style="background:#f0ebe0;border:1px solid #bbb"></span>
-        {unclaimed} unclaimed
-      </span>
-    </div>
-  </div>
 
   <div class="layout">
     <div class="quilt-col">
@@ -1744,11 +1705,6 @@ HTML = f"""<!DOCTYPE html>
         <div class="stat-label">Campaign Goal</div>
         <div class="stat-val">$750,000</div>
         <div class="stat-sub">Land acquisition &middot; 37,500 patches</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Total Raised</div>
-        <div class="stat-val">{raised_fmt}</div>
-        <div class="stat-sub">{raised_sub}</div>
       </div>
       <div class="countdown">
         <div class="cd-num">{days_remaining}</div>
