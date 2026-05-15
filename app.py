@@ -277,20 +277,20 @@ st.markdown(
 CSS = """
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#1a3040}
-.wrap{width:100%;padding:1rem 1.25rem 1.5rem}
+.wrap{width:100%;padding:.75rem 1.25rem .5rem}
 .eyebrow{font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:""" + ACCENT + """;font-weight:500;margin-bottom:.5rem}
 .title{font-family:'Playfair Display',serif;font-size:clamp(1.9rem,5vw,3rem);line-height:1.1;color:#1a3040;margin-bottom:.6rem}
 .title em{color:""" + PRIMARY + """;font-style:italic}
 .tagline{font-size:.95rem;line-height:1.7;color:#4a5c5a;max-width:620px;margin-bottom:.5rem}
 .fun-note{display:inline-block;font-size:.75rem;color:#F94144;font-style:italic;background:rgba(249,65,68,.07);padding:.3rem .75rem;border-radius:20px;border:1px dashed rgba(249,65,68,.25);margin-bottom:1.25rem}
-.header-row{display:flex;gap:2rem;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:.75rem}
+.header-row{display:flex;gap:2rem;align-items:flex-start;justify-content:space-between;flex-wrap:nowrap;margin-bottom:.5rem;flex-shrink:0}
 .header-left{flex:1;min-width:260px}
-.header-stats{display:flex;gap:.75rem;align-items:flex-start;flex-shrink:0;flex-wrap:wrap}
+.header-stats{display:flex;gap:.75rem;align-items:flex-start;flex-shrink:0}
 .header-stats .stat-card{margin-bottom:0;min-width:150px}
 .header-stats .countdown{margin-bottom:0;min-width:90px}
 .quilt-border{border:3px solid #1a3040;border-radius:4px;padding:3px;background:#1a3040;width:100%;position:relative;overflow:hidden}
 .quilt-grid{position:relative;width:100%}
-.legend{display:flex;gap:.9rem;margin-top:.5rem;flex-wrap:wrap;align-items:center}
+.legend{display:flex;gap:.9rem;margin-top:.4rem;flex-wrap:wrap;align-items:center}
 #quilt-canvas{display:block}
 .zoom-controls{display:flex;gap:.35rem;align-items:center;margin-left:auto}
 .zoom-btn{background:#1a3040;color:#faf8f3;border:none;border-radius:3px;width:28px;height:28px;font-size:1rem;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center}
@@ -416,7 +416,8 @@ JS = r"""
     if (zoom < minZoom) zoom = minZoom;
     canvas.width = containerW;
     var viewH = window.innerHeight || 600;
-    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.28, fullH * minZoom));
+    /* Wide/short: cap height at 30% of viewport so the quilt is a horizontal band */
+    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.30, fullH * minZoom));
     canvas.height = visH;
     canvas.style.height = visH + 'px';
     clampPan();
@@ -575,7 +576,7 @@ JS = r"""
     return result;
   }
 
-  /* Auto-resize iframe height */
+  /* Auto-resize iframe to full content height */
   function notifyHeight() {
     var h = document.body.scrollHeight;
     window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
