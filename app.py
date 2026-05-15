@@ -576,13 +576,7 @@ JS = r"""
     return result;
   }
 
-  /* Auto-resize iframe to full content height */
-  function notifyHeight() {
-    var h = document.body.scrollHeight;
-    window.parent.postMessage({ type: 'streamlit:setFrameHeight', height: h }, '*');
-  }
-  setTimeout(notifyHeight, 300);
-  window.addEventListener('resize', function() { sizeCanvas(); notifyHeight(); });
+  window.addEventListener('resize', function() { sizeCanvas(); });
 
   var tip = document.getElementById('tip');
 
@@ -742,7 +736,6 @@ JS = r"""
     renderPickedSummary();
     hidePickBanner();
     overlay.classList.add('active');
-    setTimeout(notifyHeight, 50);
   }
 
   function closeModal() {
@@ -878,7 +871,6 @@ JS = r"""
     overlay.classList.remove('active');
     draw();
     showPickBanner();
-    setTimeout(notifyHeight, 50);
   });
 
   autofillBtn.addEventListener('click', function() {
@@ -1790,21 +1782,21 @@ HTML = f"""<!DOCTYPE html>
 <script>{GALLERY_JS}</script>
 <script>
 (function() {{
+  var reported = 0;
   function resizeFrame() {{
     var h = document.body.scrollHeight;
-    if (window.frameElement) {{
-      window.frameElement.style.height = h + 'px';
-    }}
+    if (h <= reported) return;
+    reported = h;
+    if (window.frameElement) window.frameElement.style.height = h + 'px';
     if (window.parent && window.parent.postMessage) {{
       window.parent.postMessage({{type: 'streamlit:setFrameHeight', height: h}}, '*');
     }}
   }}
   window.addEventListener('load', resizeFrame);
-  new MutationObserver(resizeFrame).observe(document.body, {{childList: true, subtree: true, attributes: true}});
-  setTimeout(resizeFrame, 500);
-  setTimeout(resizeFrame, 1500);
-  setTimeout(resizeFrame, 3000);
-  setTimeout(resizeFrame, 5000);
+  setTimeout(resizeFrame, 800);
+  setTimeout(resizeFrame, 2000);
+  setTimeout(resizeFrame, 4000);
+  setTimeout(resizeFrame, 7000);
 }})();
 </script>
 </body>
