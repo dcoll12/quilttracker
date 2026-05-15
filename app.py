@@ -416,7 +416,7 @@ JS = r"""
     if (zoom < minZoom) zoom = minZoom;
     canvas.width = containerW;
     var viewH = window.innerHeight || 600;
-    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.52, fullH * minZoom));
+    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.28, fullH * minZoom));
     canvas.height = visH;
     canvas.style.height = visH + 'px';
     clampPan();
@@ -1807,4 +1807,4 @@ HTML = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-st.components.v1.html(HTML, height=2400, scrolling=False)
+st.components.v1.html(HTML, height=3200, scrolling=False)
