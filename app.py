@@ -283,17 +283,19 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
 .title em{color:""" + PRIMARY + """;font-style:italic}
 .tagline{font-size:.95rem;line-height:1.7;color:#4a5c5a;max-width:620px;margin-bottom:.5rem}
 .fun-note{display:inline-block;font-size:.75rem;color:#F94144;font-style:italic;background:rgba(249,65,68,.07);padding:.3rem .75rem;border-radius:20px;border:1px dashed rgba(249,65,68,.25);margin-bottom:1.25rem}
-.layout{display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap}
-.quilt-col{flex:1;min-width:280px}
-.sidebar{flex:0 0 210px;min-width:180px}
+.header-row{display:flex;gap:2rem;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:.75rem}
+.header-left{flex:1;min-width:260px}
+.header-stats{display:flex;gap:.75rem;align-items:flex-start;flex-shrink:0;flex-wrap:wrap}
+.header-stats .stat-card{margin-bottom:0;min-width:150px}
+.header-stats .countdown{margin-bottom:0;min-width:90px}
 .quilt-border{border:3px solid #1a3040;border-radius:4px;padding:3px;background:#1a3040;width:100%;position:relative;overflow:hidden}
 .quilt-grid{position:relative;width:100%}
+.legend{display:flex;gap:.9rem;margin-top:.5rem;flex-wrap:wrap;align-items:center}
 #quilt-canvas{display:block}
-.zoom-controls{display:flex;gap:.35rem;margin-top:.5rem;align-items:center}
+.zoom-controls{display:flex;gap:.35rem;align-items:center;margin-left:auto}
 .zoom-btn{background:#1a3040;color:#faf8f3;border:none;border-radius:3px;width:28px;height:28px;font-size:1rem;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center}
 .zoom-btn:hover{background:#2a6c5a}
 .zoom-label{font-size:.65rem;color:#4a5c5a;margin:0 .3rem}
-.legend{display:flex;gap:.9rem;margin-top:.75rem;flex-wrap:wrap;align-items:center}
 .legend-item{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:#4a5c5a}
 .swatch{width:10px;height:10px;border-radius:1px;border:1px solid rgba(0,0,0,.12);flex-shrink:0}
 .stat-card{border:1px solid rgba(67,170,139,.2);border-radius:6px;padding:1rem 1.1rem;margin-bottom:.75rem;background:rgba(250,248,243,.9)}
@@ -414,7 +416,7 @@ JS = r"""
     if (zoom < minZoom) zoom = minZoom;
     canvas.width = containerW;
     var viewH = window.innerHeight || 600;
-    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.72, fullH * minZoom));
+    var visH = Math.min(fullH * zoom, Math.max(viewH * 0.52, fullH * minZoom));
     canvas.height = visH;
     canvas.style.height = visH + 'px';
     clampPan();
@@ -1672,36 +1674,14 @@ HTML = f"""<!DOCTYPE html>
 {data_script}
 
 <div class="wrap">
-  <p class="eyebrow">Salem, Indiana &middot; Washington County</p>
-  <h1 class="title">The Community<br><em>Crossroads Quilt</em></h1>
-  <p class="tagline">37,500 patches. One for every $20 it takes to save .70 acres of this corner forever. Every voice fills a square.</p>
-  <span class="fun-note">&#x1F9F5; No actual sewing required.</span>
-
-  <div class="layout">
-    <div class="quilt-col">
-      <div class="quilt-border">
-        <div class="quilt-grid" id="quilt-grid">
-{grid_html}
-        </div>
-      </div>
-      <div class="legend">
-        <div class="legend-item">
-          <div class="swatch" style="background:{PRIMARY}"></div>Claimed
-        </div>
-        <div class="legend-item">
-          <div class="swatch" style="background:#f0ebe0;border-color:#aaa"></div>Unclaimed
-        </div>
-        <span style="font-size:.65rem;color:#4a5c5a;font-style:italic;margin-left:auto">scroll to zoom &middot; drag to pan &middot; click to claim</span>
-      </div>
-      <div class="zoom-controls">
-        <button class="zoom-btn" id="zoom-out">&minus;</button>
-        <span class="zoom-label" id="zoom-label">100%</span>
-        <button class="zoom-btn" id="zoom-in">+</button>
-        <button class="zoom-btn" id="zoom-reset" style="font-size:.6rem;width:auto;padding:0 .5rem">Reset</button>
-      </div>
+  <div class="header-row">
+    <div class="header-left">
+      <p class="eyebrow">Salem, Indiana &middot; Washington County</p>
+      <h1 class="title">The Community <em>Crossroads Quilt</em></h1>
+      <p class="tagline">37,500 patches. One for every $20 it takes to save .70 acres of this corner forever. Every voice fills a square.</p>
+      <span class="fun-note">&#x1F9F5; No actual sewing required.</span>
     </div>
-
-    <div class="sidebar">
+    <div class="header-stats">
       <div class="stat-card">
         <div class="stat-label">Campaign Goal</div>
         <div class="stat-val">$750,000</div>
@@ -1711,6 +1691,27 @@ HTML = f"""<!DOCTYPE html>
         <div class="cd-num">{days_remaining}</div>
         <div class="cd-label">days until July 9</div>
       </div>
+    </div>
+  </div>
+
+  <div class="quilt-border">
+    <div class="quilt-grid" id="quilt-grid">
+{grid_html}
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-item">
+      <div class="swatch" style="background:{PRIMARY}"></div>Claimed
+    </div>
+    <div class="legend-item">
+      <div class="swatch" style="background:#f0ebe0;border-color:#aaa"></div>Unclaimed
+    </div>
+    <span style="font-size:.65rem;color:#4a5c5a;font-style:italic;margin-left:auto">scroll to zoom &middot; drag to pan &middot; click to claim</span>
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoom-out">&minus;</button>
+      <span class="zoom-label" id="zoom-label">100%</span>
+      <button class="zoom-btn" id="zoom-in">+</button>
+      <button class="zoom-btn" id="zoom-reset" style="font-size:.6rem;width:auto;padding:0 .5rem">Reset</button>
     </div>
   </div>
 </div>
