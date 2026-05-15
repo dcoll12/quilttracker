@@ -1687,6 +1687,7 @@ HTML = f"""<!DOCTYPE html>
     </div>
   </div>
 
+  <p style="font-size:.85rem;color:#4a5c5a;text-align:center;margin:0 0 .6rem;letter-spacing:.01em">Select a square to donate &mdash; or select a design below.</p>
   <div class="quilt-border">
     <div class="quilt-grid" id="quilt-grid">
 {grid_html}
