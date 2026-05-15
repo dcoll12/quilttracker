@@ -261,7 +261,7 @@ st.markdown(
     .stApp, html, body, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {background: #faf8f3 !important; overflow-x: hidden !important;}
     .stApp > header {display: none !important; height: 0 !important;}
     .stApp [data-testid="stHeader"] {display: none !important; height: 0 !important;}
-    .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; padding-bottom: 0 !important; max-width: 100% !important; overflow-x: hidden !important; margin-top: -3rem !important; margin-bottom: 0 !important;}
+    .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; padding-bottom: 0 !important; max-width: 100% !important; overflow-x: hidden !important; margin-top: 1rem !important; margin-bottom: 0 !important;}
     [data-testid="stAppViewContainer"] > section > div {padding: 0 !important;}
     section[data-testid="stSidebar"] {display: none;}
     html, body {overflow-x: hidden !important;}
