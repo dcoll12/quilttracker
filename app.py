@@ -1687,7 +1687,7 @@ HTML = f"""<!DOCTYPE html>
     </div>
   </div>
 
-  <p style="font-size:.85rem;color:#4a5c5a;text-align:center;margin:0 0 .6rem;letter-spacing:.01em">Select a square to donate &mdash; or select a design below.</p>
+  <p style="font-size:.85rem;color:#4a5c5a;text-align:center;margin:0 0 .6rem;letter-spacing:.01em">Select a square to donate &mdash; or select a design below. <a href="https://www.zeffy.com/en-US/peer-to-peer/community-crossroads?donate=true" target="_blank" rel="noopener" style="color:#43AA8B;font-weight:600;text-decoration:none;border-bottom:1px solid rgba(67,170,139,.4)">Donate directly &rarr;</a></p>
   <div class="quilt-border">
     <div class="quilt-grid" id="quilt-grid">
 {grid_html}
