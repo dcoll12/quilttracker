@@ -373,6 +373,14 @@ html,body{width:100%;background:#faf8f3;font-family:'DM Sans',sans-serif;color:#
   .sidebar .countdown,.sidebar .donate-btn,.sidebar .micro{grid-column:span 2}
   .modal{padding:1.25rem}
   .color-swatch{width:30px;height:30px}
+  .header-stats{flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0}
+  .header-stats .stat-card{min-width:0;padding:.5rem .65rem;text-align:right;margin-bottom:0}
+  .header-stats .countdown{min-width:0;padding:.4rem .55rem;text-align:right;margin-bottom:0}
+  .header-stats .stat-val{font-size:1rem}
+  .header-stats .stat-label{font-size:.52rem}
+  .header-stats .stat-sub{font-size:.52rem}
+  .header-stats .cd-num{font-size:1.25rem}
+  .header-stats .cd-label{font-size:.5rem}
 }
 """
 
