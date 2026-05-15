@@ -14,7 +14,7 @@
     text-align: center;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 1.5rem 1.5rem 2rem;
+    padding: 3.5rem 1.5rem 2rem;
   }
 
   .quilt-preview * { box-sizing: border-box; }
@@ -39,16 +39,18 @@
     width: 100%;
     aspect-ratio: 4 / 1;
     border-radius: 10px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: scroll;
     box-shadow: 0 8px 40px rgba(26, 48, 64, 0.12);
     border: 3px solid rgba(67, 170, 139, 0.25);
     margin-bottom: 1.5rem;
+    scroll-behavior: smooth;
   }
 
   .quilt-preview .qp-canvas-wrap canvas {
     display: block;
     width: 100%;
-    height: 100%;
+    height: 200%;
     background: var(--qp-bg);
   }
 
@@ -136,7 +138,7 @@
   }
 
   @media (max-width: 520px) {
-    .quilt-preview { padding: 1rem 1rem 1.5rem; }
+    .quilt-preview { padding: 2.5rem 1rem 1.5rem; }
     .quilt-preview .qp-canvas-wrap { aspect-ratio: 2 / 1; border-radius: 8px; }
     .quilt-preview .qp-canvas-label { padding: 1.5rem 0.8rem 0.6rem; font-size: 0.7rem; }
     .quilt-preview .qp-stats { gap: 1.2rem; }
@@ -224,7 +226,7 @@
     function resize() {
       var rect = wrap.getBoundingClientRect();
       canvas.width = rect.width;
-      canvas.height = rect.height;
+      canvas.height = rect.height * 2;
       redraw();
     }
 
