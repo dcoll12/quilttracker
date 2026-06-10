@@ -4,40 +4,14 @@ import json
 import math
 import csv
 import io
-import os
 import random
-import threading
-import time
 from datetime import datetime
 
 
-# ---------------------------------------------------------------------------
-# Keep-alive self-ping — prevents the hosting platform from sleeping the app.
-# Set the APP_URL environment variable to the public URL of this app
-# (e.g. https://quilttracker.onrender.com). Also honours RENDER_EXTERNAL_URL
-# which Render sets automatically.
-# ---------------------------------------------------------------------------
-
-
-@st.cache_resource
-def _start_keep_alive(interval: int = 240):
-    url = os.environ.get("APP_URL") or os.environ.get("RENDER_EXTERNAL_URL")
-    if not url:
-        return
-
-    def _ping():
-        while True:
-            try:
-                requests.get(url, timeout=15)
-            except Exception:
-                pass
-            time.sleep(interval)
-
-    t = threading.Thread(target=_ping, daemon=True)
-    t.start()
-
-
-_start_keep_alive()
+# NOTE: An in-app self-ping cannot keep a Streamlit Community Cloud app awake —
+# when the app sleeps, its container (and any background thread) sleeps too, so
+# it can never wake itself. Keep-alive is handled by an EXTERNAL scheduled
+# GitHub Action instead: see .github/workflows/keep-awake.yml
 
 st.set_page_config(
     page_title="Community Crossroads Quilt",
